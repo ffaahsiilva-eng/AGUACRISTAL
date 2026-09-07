@@ -317,21 +317,50 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       {/* Expenses Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+          
+          {/* Mobile Cards */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {filteredExpenses.length === 0 ? (
+              <div className="py-12 text-center text-slate-400">Nenhuma despesa encontrada com os filtros selecionados.</div>
+            ) : (
+              filteredExpenses.map((exp) => (
+                <div key={"mob-"+exp.id} className="p-4 bg-white">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="font-bold text-slate-800">{formatDate(exp.date)}</span>
+                    <span className="font-bold text-rose-600">{formatCurrency(exp.amount)}</span>
+                  </div>
+                  <div className="mb-3">
+                    <div className="font-bold text-slate-900 truncate">{exp.description}</div>
+                    <div className="text-[11px] text-slate-500">{exp.category} {exp.vehicle_name ? `• ${exp.vehicle_name}` : ''}</div>
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold ${exp.status === 'Pago' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                      {exp.status}
+                    </span>
+                    <div className="flex gap-2">
+                      <button onClick={() => onEditExpense(exp)} className="p-2 rounded-lg border border-slate-200 text-sky-600 bg-white">
+                        Editar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <table className="hidden md:table w-full text-left text-xs border-collapse">
+            <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase text-[11px] tracking-wide">
               <tr>
-                <th className="py-3 px-3">Código</th>
-                <th className="py-3 px-3">Data</th>
-                <th className="py-3 px-3">Descrição</th>
-                <th className="py-3 px-3">Categoria</th>
-                <th className="py-3 px-3">Veículo / Motorista</th>
-                <th className="py-3 px-3 text-right">Valor</th>
-                <th className="py-3 px-3">Pagamento</th>
-                <th className="py-3 px-3">Fornecedor / Doc</th>
-                <th className="py-3 px-3 text-center">Ações</th>
+                <th className="py-3 px-3 whitespace-nowrap">Data</th>
+                <th className="py-3 px-3 min-w-[200px]">Descrição</th>
+                <th className="py-3 px-3 min-w-[120px]">Categoria</th>
+                <th className="py-3 px-3 min-w-[150px]">Veículo Relacionado</th>
+                <th className="py-3 px-3 text-right whitespace-nowrap">Valor</th>
+                <th className="py-3 px-3 text-center whitespace-nowrap">Status</th>
+                <th className="py-3 px-3 text-center whitespace-nowrap">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+
               {filteredExpenses.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">

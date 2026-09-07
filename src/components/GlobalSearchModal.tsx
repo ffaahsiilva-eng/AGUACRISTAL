@@ -120,7 +120,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     >
       <div
         id="global-search-modal-container"
-        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]"
+        className="w-[calc(100%-24px)] md:w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input Bar */}

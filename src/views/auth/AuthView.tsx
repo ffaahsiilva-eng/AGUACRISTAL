@@ -347,11 +347,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         {/* Top Header Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 p-0.5 shadow-lg shadow-sky-500/30 flex items-center justify-center">
-              <div className="w-full h-full bg-slate-900/40 backdrop-blur-xs rounded-[14px] flex items-center justify-center">
-                <Droplets className="w-6 h-6 text-sky-300 fill-sky-400" />
-              </div>
-            </div>
+            <img src="/logo.png" alt="Logo" className="w-14 h-14 object-contain brightness-0 invert" />
             <div>
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white font-sans">
                 ÁGUA CRISTAL SUL
@@ -412,11 +408,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         <div className="w-full max-w-md">
           {/* Mobile Logo Header (Shown on phone only: < md) */}
           <div className="md:hidden flex items-center gap-3 mb-5 pb-3 border-b border-slate-200">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 p-0.5 shadow-md shadow-sky-500/20 flex items-center justify-center">
-              <div className="w-full h-full bg-slate-900/40 rounded-[10px] flex items-center justify-center">
-                <Droplets className="w-5 h-5 text-sky-300 fill-sky-400" />
-              </div>
-            </div>
+            <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain" />
             <div>
               <h1 className="text-base font-black tracking-tight text-slate-900 font-sans">
                 ÁGUA CRISTAL SUL

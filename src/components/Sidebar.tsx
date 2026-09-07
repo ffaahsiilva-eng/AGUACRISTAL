@@ -97,11 +97,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const roleInfo = getRoleBadge(currentUser.role);
 
   return (
+    <>
+    {/* Mobile Overlay */}
+    {isMobileOpen && (
+      <div 
+        className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm md:hidden transition-opacity" 
+        onClick={() => setIsMobileOpen(false)}
+      />
+    )}
+    
     <aside
       id="main-sidebar"
-      className={`relative z-20 flex flex-col bg-slate-900 text-slate-100 transition-all duration-300 border-r border-slate-800 ${
-        isCollapsed ? 'w-20' : 'w-64'
-      } shrink-0`}
+      className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-slate-900 text-slate-100 transition-transform duration-300 border-r border-slate-800 md:relative md:translate-x-0 ${
+        isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+      } ${isCollapsed ? 'md:w-20' : 'md:w-64'} w-72 shrink-0`}
     >
       {/* Brand Header */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-slate-800 bg-slate-950/50">
@@ -110,9 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="flex items-center gap-3 cursor-pointer select-none overflow-hidden"
           title="Água Cristal Sul"
         >
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 text-white shadow-lg shadow-sky-500/20 shrink-0">
-            <Droplets className="w-6 h-6" />
-          </div>
+          <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain shrink-0" />
           {!isCollapsed && (
             <div className="flex flex-col truncate">
               <span className="font-extrabold text-sm tracking-wide text-white font-sans uppercase">
@@ -171,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               key={item.id}
               id={`nav-item-${item.id}`}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => { setActiveTab(item.id); if (window.innerWidth < 768) setIsMobileOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all group ${
                 isActive
                   ? 'bg-sky-600/20 text-sky-400 border border-sky-500/30 shadow-sm'
@@ -233,5 +240,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
     </aside>
+    </>
   );
 };

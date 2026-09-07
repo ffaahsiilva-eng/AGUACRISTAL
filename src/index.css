@@ -1,6 +1,45 @@
 @import "tailwindcss";
 
 @layer base {
+  
+  /* Mobile touch targets */
+  @media (max-width: 767px) {
+    button:not(.w-4):not(.h-4):not(.p-1):not(.p-1\.5):not(.w-3):not(.h-3), 
+    [role="button"]:not(.w-4):not(.h-4):not(.p-1):not(.p-1\.5),
+    select,
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="password"],
+    input[type="date"],
+    input[type="time"] {
+      min-height: 44px;
+    }
+  }
+
+  /* Reset for small icon buttons if needed so they don't break, but generally they have w-8 h-8 classes which override */
+
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Prevent iOS zoom on inputs */
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="date"],
+  input[type="time"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   }

@@ -200,21 +200,60 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
       {/* Deliveries Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+          
+          {/* Mobile Cards */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {filteredDeliveries.length === 0 ? (
+              <div className="py-12 text-center text-slate-400">Nenhuma entrega encontrada com os filtros selecionados.</div>
+            ) : (
+              filteredDeliveries.map((del) => (
+                <div key={"mob-"+del.id} className="p-4 bg-white">
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="font-bold text-emerald-700">{del.code}</span>
+                    <span className="text-xs text-slate-500">{formatDate(del.delivery_date)}</span>
+                  </div>
+                  <div className="mb-3">
+                    <div className="font-bold text-slate-900 truncate">{del.client_name}</div>
+                    <div className="text-[11px] text-slate-500">{del.address}, {del.city}</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                    <div>
+                      <span className="block text-[10px] text-slate-400 font-semibold uppercase">Motorista</span>
+                      <span className="font-medium text-slate-700">{del.driver_name}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-slate-400 font-semibold uppercase">Quantidade</span>
+                      <span className="font-bold text-sky-800">{del.quantity} un</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold ${del.status === 'Entregue' ? 'bg-emerald-100 text-emerald-800' : del.status === 'Saiu para entrega' ? 'bg-sky-100 text-sky-800' : del.status === 'Aguardando' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`}>
+                      {del.status}
+                    </span>
+                    <button onClick={() => onEditDelivery(del)} className="p-2 rounded-lg border border-slate-200 text-sky-600 bg-white">
+                      Editar
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <table className="hidden md:table w-full text-left text-xs border-collapse">
+            <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase text-[11px] tracking-wide">
               <tr>
-                <th className="py-3 px-3">Código</th>
-                <th className="py-3 px-3">Data</th>
-                <th className="py-3 px-3">Cliente</th>
-                <th className="py-3 px-3">Endereço de Entrega</th>
-                <th className="py-3 px-3">Motorista</th>
-                <th className="py-3 px-3 text-center">Galões</th>
-                <th className="py-3 px-3 text-center">Horários</th>
-                <th className="py-3 px-3 text-center">Status</th>
-                <th className="py-3 px-3 text-center">Ações</th>
+                <th className="py-3 px-3 whitespace-nowrap">Cód.</th>
+                <th className="py-3 px-3 whitespace-nowrap">Data</th>
+                <th className="py-3 px-3 min-w-[150px]">Cliente</th>
+                <th className="py-3 px-3 min-w-[200px]">Endereço</th>
+                <th className="py-3 px-3 whitespace-nowrap">Motorista / Veículo</th>
+                <th className="py-3 px-3 text-center whitespace-nowrap">Qtd (un)</th>
+                <th className="py-3 px-3 text-center whitespace-nowrap">Horários</th>
+                <th className="py-3 px-3 text-center whitespace-nowrap">Status</th>
+                <th className="py-3 px-3 text-center whitespace-nowrap">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
+
               {filteredDeliveries.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">

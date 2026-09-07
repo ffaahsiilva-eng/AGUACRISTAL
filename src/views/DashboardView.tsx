@@ -392,7 +392,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Primary KPI Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {/* Card 1: Total Vendas Período */}
         <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-sky-300 transition-colors">
           <div className="flex items-center justify-between">
@@ -556,7 +556,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Interactive Charts & Breakdowns */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* Chart 1: Sales by Payment Method */}
         <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between mb-4">
