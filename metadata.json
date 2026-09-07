@@ -1,0 +1,6 @@
+{
+  "name": "GESTÃO ÁGUA CRISTAL SUL",
+  "description": "Controle de Vendas, Entregas e Financeiro para Água Cristal Sul",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
