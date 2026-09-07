@@ -22,12 +22,12 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
   const [date, setDate] = useState(getTodayDateString());
   const [clientInput, setClientInput] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');
-  const [city, setCity] = useState('Balneário Camboriú');
+  const [city, setCity] = useState('');
   const [driverId, setDriverId] = useState('');
   const [driverName, setDriverName] = useState('');
-  const [quantity, setQuantity] = useState<number | string>(50);
-  const [unitPrice, setUnitPrice] = useState<number | string>(settings.default_unit_price || 27.5);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PIX');
+  const [quantity, setQuantity] = useState<number | string>('');
+  const [unitPrice, setUnitPrice] = useState<number | string>('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [countSaved, setCountSaved] = useState(0);
   const [recentSavedName, setRecentSavedName] = useState('');
 
@@ -45,13 +45,12 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
   const resetFields = () => {
     setClientInput('');
     setSelectedClientId('');
-    setQuantity(50);
-    setUnitPrice(settings.default_unit_price || 27.5);
-    setPaymentMethod('PIX');
-    if (drivers.length > 0 && !driverId) {
-      setDriverId(drivers[0].id);
-      setDriverName(drivers[0].name);
-    }
+    setCity('');
+    setQuantity('');
+    setUnitPrice('');
+    setPaymentMethod('');
+    setDriverId('');
+    setDriverName('');
     setTimeout(() => clientInputRef.current?.focus(), 50);
   };
 
@@ -91,8 +90,20 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
       clientInputRef.current?.focus();
       return null;
     }
+    if (!city.trim()) {
+      alert('Por favor, informe a cidade.');
+      return null;
+    }
     if (numQuantity <= 0) {
-      alert('A quantidade deve ser maior que zero.');
+      alert('Por favor, informe a quantidade.');
+      return null;
+    }
+    if (numUnitPrice <= 0) {
+      alert('Por favor, informe o valor unitário.');
+      return null;
+    }
+    if (!paymentMethod) {
+      alert('Por favor, selecione a forma de pagamento.');
       return null;
     }
 
@@ -111,11 +122,11 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
         city: city.trim() || matchedClient?.city || 'Imperatriz-MA',
         state: matchedClient?.state || 'MA',
         driver_id: driverId || undefined,
-        driver_name: driverName || (drivers[0] ? drivers[0].name : 'A definir'),
+        driver_name: driverName || 'A definir',
         quantity: numQuantity,
         unit_price: numUnitPrice,
         total_amount: totalAmount,
-        payment_method: paymentMethod,
+        payment_method: paymentMethod as PaymentMethod,
         payment_status: 'Pago',
         sale_status: 'Confirmada',
         amount_paid: totalAmount,
