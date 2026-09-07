@@ -15,14 +15,27 @@ import {
   Trash2,
   CheckCircle2,
   AlertTriangle,
+  UserCheck,
+  UserX,
+  Lock,
+  KeyRound,
+  ShieldAlert,
+  Clock,
 } from 'lucide-react';
-import { CompanyInfo, User, AuditLog } from '../types';
+import { CompanyInfo, User, UserRole, UserStatus, AuditLog } from '../types';
 import { storage } from '../services/storage';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { generateSalt, hashPassword } from '../utils/crypto';
 
 export const SettingsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'company' | 'users' | 'backup' | 'audit'>('company');
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+
+  // Settings & Approval policy
+  const companySettings = storage.getSettings();
+  const [requireApproval, setRequireApproval] = useState(
+    companySettings.require_admin_approval_for_new_users !== false
+  );
 
   // Company state
   const currentCompany = storage.getCompanyInfo();
@@ -42,7 +55,127 @@ export const SettingsView: React.FC = () => {
   const currentUser = storage.getCurrentUser();
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserRole, setNewUserRole] = useState<'ADMINISTRADOR' | 'OPERADOR' | 'VISUALIZACAO'>('OPERADOR');
+  const [newUserPhone, setNewUserPhone] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<UserRole>('OPERADOR');
+  const [resetPwdModalUser, setResetPwdModalUser] = useState<User | null>(null);
+  const [modalNewPassword, setModalNewPassword] = useState('');
+
+  // Policy toggle handler
+  const handleToggleApproval = (require: boolean) => {
+    setRequireApproval(require);
+    const curr = storage.getSettings();
+    const updated = {
+      ...curr,
+      require_admin_approval_for_new_users: require,
+    };
+    storage.updateSettings(updated);
+    setSaveSuccessMessage(
+      require
+        ? 'Política atualizada: novos cadastros exigem aprovação do Administrador.'
+        : 'Política atualizada: novos cadastros são ativados automaticamente como Operador.'
+    );
+    setTimeout(() => setSaveSuccessMessage(null), 3000);
+  };
+
+  const handleApproveUser = (user: User) => {
+    const updated: User = {
+      ...user,
+      status: 'Ativo',
+      updated_at: new Date().toISOString(),
+    };
+    storage.saveUser(updated);
+    storage.logAudit(
+      'Aprovação',
+      'Configuração',
+      user.id,
+      `Administrador ${currentUser.name} aprovou o acesso de ${user.name}`
+    );
+    setSaveSuccessMessage(`Acesso de ${user.name} aprovado com sucesso!`);
+    setTimeout(() => setSaveSuccessMessage(null), 3000);
+  };
+
+  const handleStatusChange = (user: User, newStatus: UserStatus) => {
+    if (user.id === currentUser.id && (newStatus === 'Inativo' || newStatus === 'Bloqueado')) {
+      alert('Você não pode desativar ou bloquear sua própria conta de administrador.');
+      return;
+    }
+    const updated: User = {
+      ...user,
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    };
+    storage.saveUser(updated);
+    storage.logAudit(
+      'Alteração',
+      'Configuração',
+      user.id,
+      `Status do usuário ${user.name} alterado para ${newStatus}`
+    );
+    setSaveSuccessMessage(`Status de ${user.name} alterado para ${newStatus}.`);
+    setTimeout(() => setSaveSuccessMessage(null), 3000);
+  };
+
+  const handleRoleChange = (user: User, newRole: UserRole) => {
+    if (user.id === currentUser.id && newRole !== 'ADMINISTRADOR') {
+      alert('Você não pode remover seu próprio perfil de Administrador.');
+      return;
+    }
+    const updated: User = {
+      ...user,
+      role: newRole,
+      updated_at: new Date().toISOString(),
+    };
+    storage.saveUser(updated);
+    storage.logAudit(
+      'Alteração',
+      'Configuração',
+      user.id,
+      `Perfil do usuário ${user.name} alterado para ${newRole}`
+    );
+    setSaveSuccessMessage(`Perfil de ${user.name} atualizado para ${newRole}.`);
+    setTimeout(() => setSaveSuccessMessage(null), 3000);
+  };
+
+  const handleConfirmResetPassword = async () => {
+    if (!resetPwdModalUser || modalNewPassword.length < 8) {
+      alert('A nova senha deve ter no mínimo 8 caracteres.');
+      return;
+    }
+    const salt = generateSalt();
+    const password_hash = await hashPassword(modalNewPassword, salt);
+    const updated: User = {
+      ...resetPwdModalUser,
+      password_hash,
+      salt,
+      password: undefined,
+      updated_at: new Date().toISOString(),
+    };
+    storage.saveUser(updated);
+    storage.logAudit(
+      'Alteração',
+      'Segurança',
+      resetPwdModalUser.id,
+      `Senha de ${resetPwdModalUser.name} redefinida pelo Administrador`
+    );
+    setResetPwdModalUser(null);
+    setModalNewPassword('');
+    setSaveSuccessMessage(`Nova senha de ${resetPwdModalUser.name} definida com sucesso!`);
+    setTimeout(() => setSaveSuccessMessage(null), 3000);
+  };
+
+  const formatLastAccess = (isoStr?: string) => {
+    if (!isoStr) return 'Nunca acessou';
+    try {
+      const d = new Date(isoStr);
+      return `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })}`;
+    } catch {
+      return isoStr;
+    }
+  };
 
   // Audit logs
   const auditLogs = storage.getAuditLogs();
@@ -66,23 +199,40 @@ export const SettingsView: React.FC = () => {
     setTimeout(() => setSaveSuccessMessage(null), 3000);
   };
 
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName.trim() || !newUserEmail.trim()) return;
 
+    const existing = users.find((u) => u.email.toLowerCase() === newUserEmail.trim().toLowerCase());
+    if (existing) {
+      alert('Já existe um usuário com este e-mail.');
+      return;
+    }
+
     const now = new Date().toISOString();
+    const pwd = newUserPassword.trim() || 'Cristal@2026';
+    const salt = generateSalt();
+    const password_hash = await hashPassword(pwd, salt);
+
     storage.saveUser({
       id: `usr-${Date.now()}`,
       name: newUserName.trim(),
-      email: newUserEmail.trim(),
+      email: newUserEmail.trim().toLowerCase(),
+      phone: newUserPhone.trim(),
       role: newUserRole,
+      status: 'Ativo',
+      password_hash,
+      salt,
+      email_verified: true,
       created_at: now,
       updated_at: now,
     });
 
     setNewUserName('');
     setNewUserEmail('');
-    setSaveSuccessMessage('Novo usuário adicionado com sucesso!');
+    setNewUserPhone('');
+    setNewUserPassword('');
+    setSaveSuccessMessage(`Novo usuário ${newUserName} adicionado com sucesso!`);
     setTimeout(() => setSaveSuccessMessage(null), 3000);
   };
 
@@ -353,57 +503,203 @@ export const SettingsView: React.FC = () => {
       {/* Tab 2: Users */}
       {activeTab === 'users' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
-            <h3 className="text-sm font-bold text-slate-900 mb-1">Usuários com Acesso ao Sistema</h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Cada perfil possui permissões específicas (Administrador: tudo; Operador: registros diários; Visualização: apenas leitura).
+          {/* Policy Card: User Registration Approval */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-3">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-sky-600" />
+              <h3 className="text-sm font-bold text-slate-900">
+                Cadastro e Aprovação de Novos Usuários
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500">
+              Configure como o sistema trata novas contas criadas através do formulário de cadastro.
             </p>
 
-            <div className="divide-y divide-slate-100">
-              {users.map((u) => (
-                <div key={u.id} className="py-3.5 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-xs">
-                      {u.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-slate-900 block">{u.name}</span>
-                      <span className="text-[11px] text-slate-500">{u.email}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                        u.role === 'ADMINISTRADOR'
-                          ? 'bg-purple-100 text-purple-800'
-                          : u.role === 'OPERADOR'
-                          ? 'bg-sky-100 text-sky-800'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {u.role === 'ADMINISTRADOR' ? 'Administrador' : u.role === 'OPERADOR' ? 'Operador' : 'Visualizador'}
-                    </span>
-
-                    {currentUser.id === u.id && (
-                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">
-                        Sessão Ativa
-                      </span>
-                    )}
-                  </div>
+            <div className="pt-2 space-y-2.5 max-w-xl">
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                <input
+                  type="radio"
+                  name="approvalPolicy"
+                  checked={!requireApproval}
+                  onChange={() => handleToggleApproval(false)}
+                  className="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300"
+                />
+                <div className="text-xs">
+                  <span className="font-semibold text-slate-800 block">
+                    Aprovação automática como Operador
+                  </span>
+                  <span className="text-slate-500 text-[11px]">
+                    O usuário pode realizar login imediatamente após preencher o cadastro.
+                  </span>
                 </div>
-              ))}
+              </label>
+
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-sky-200 bg-sky-50/40 hover:bg-sky-50 cursor-pointer transition-colors">
+                <input
+                  type="radio"
+                  name="approvalPolicy"
+                  checked={requireApproval}
+                  onChange={() => handleToggleApproval(true)}
+                  className="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-slate-900 block flex items-center gap-1.5">
+                    Exigir aprovação do Administrador
+                    <span className="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-md">
+                      Recomendado por padrão
+                    </span>
+                  </span>
+                  <span className="text-slate-500 text-[11px]">
+                    Novas contas permanecem com status <strong>Pendente</strong> até que você as aprove nesta tela.
+                  </span>
+                </div>
+              </label>
             </div>
           </div>
 
-          {/* Add user */}
-          <form onSubmit={handleAddUser} className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4">
-            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Adicionar Novo Usuário
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          {/* User List */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Nome Completo</label>
+                <h3 className="text-sm font-bold text-slate-900 mb-1">
+                  Usuários com Acesso ao Sistema ({users.length})
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Gerencie permissões, aprove novos acessos, redefina senhas ou bloqueie operadores.
+                </p>
+              </div>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {users.map((u) => {
+                const userStatus: UserStatus = u.status || 'Ativo';
+                return (
+                  <div
+                    key={u.id}
+                    className="py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                  >
+                    {/* User info */}
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                        {u.name.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-slate-900">{u.name}</span>
+                          {currentUser.id === u.id && (
+                            <span className="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-md">
+                              Você (Sessão Atual)
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-wrap">
+                          <span>{u.email}</span>
+                          {u.phone && <span>• {u.phone}</span>}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>Último acesso: {formatLastAccess(u.ultimo_login)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Roles, Status and Actions */}
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      {/* Status Badge */}
+                      <span
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${
+                          userStatus === 'Ativo'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : userStatus === 'Pendente'
+                            ? 'bg-amber-100 text-amber-800'
+                            : userStatus === 'Bloqueado'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {userStatus === 'Ativo' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                        {userStatus === 'Pendente' && <Clock className="w-3 h-3 text-amber-600" />}
+                        {userStatus === 'Bloqueado' && <Lock className="w-3 h-3 text-rose-600" />}
+                        {userStatus}
+                      </span>
+
+                      {/* Role Selector */}
+                      <select
+                        value={u.role}
+                        onChange={(e) => handleRoleChange(u, e.target.value as UserRole)}
+                        disabled={currentUser.id === u.id}
+                        className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:bg-slate-50 disabled:text-slate-400"
+                      >
+                        <option value="OPERADOR">Operador</option>
+                        <option value="ADMINISTRADOR">Administrador</option>
+                        <option value="VISUALIZACAO">Visualizador</option>
+                      </select>
+
+                      {/* Action: Approve pending user */}
+                      {userStatus === 'Pendente' && (
+                        <button
+                          type="button"
+                          onClick={() => handleApproveUser(u)}
+                          className="flex items-center gap-1 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+                        >
+                          <UserCheck className="w-3.5 h-3.5" />
+                          <span>Aprovar Acesso</span>
+                        </button>
+                      )}
+
+                      {/* Action: Toggle Active / Inactive / Block */}
+                      {userStatus === 'Ativo' && currentUser.id !== u.id && (
+                        <button
+                          type="button"
+                          onClick={() => handleStatusChange(u, 'Inativo')}
+                          className="px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          Desativar
+                        </button>
+                      )}
+
+                      {(userStatus === 'Inativo' || userStatus === 'Bloqueado') && (
+                        <button
+                          type="button"
+                          onClick={() => handleStatusChange(u, 'Ativo')}
+                          className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          Reativar
+                        </button>
+                      )}
+
+                      {/* Action: Reset Password Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResetPwdModalUser(u);
+                          setModalNewPassword('');
+                        }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                        title="Redefinir senha deste usuário"
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Add user form */}
+          <form
+            onSubmit={handleAddUser}
+            className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4"
+          >
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <Plus className="w-4 h-4 text-sky-600" />
+              Cadastrar Novo Usuário Manualmente
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Nome Completo *</label>
                 <input
                   type="text"
                   value={newUserName}
@@ -415,7 +711,7 @@ export const SettingsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">E-mail</label>
+                <label className="block font-semibold text-slate-700 mb-1">E-mail *</label>
                 <input
                   type="email"
                   value={newUserEmail}
@@ -423,6 +719,17 @@ export const SettingsView: React.FC = () => {
                   placeholder="amanda@aguacristalsul.com.br"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Telefone</label>
+                <input
+                  type="text"
+                  value={newUserPhone}
+                  onChange={(e) => setNewUserPhone(e.target.value)}
+                  placeholder="(99) 99999-9999"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
               </div>
 
@@ -440,16 +747,82 @@ export const SettingsView: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Senha Inicial (Opcional - padrão: Cristal@2026)
+                </label>
+                <input
+                  type="text"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  placeholder="Deixe em branco para usar Cristal@2026"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
               <button
                 type="submit"
-                className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold text-xs"
+                className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold text-xs shadow-md shadow-sky-600/20 active:scale-95 transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 Cadastrar Usuário
               </button>
             </div>
           </form>
+
+          {/* Modal to Reset User Password */}
+          {resetPwdModalUser && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+              <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-sky-600" />
+                    Redefinir Senha de {resetPwdModalUser.name}
+                  </h3>
+                  <button
+                    onClick={() => setResetPwdModalUser(null)}
+                    className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Defina uma nova senha para o usuário <strong>{resetPwdModalUser.email}</strong>.
+                </p>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Nova Senha (mínimo 8 caracteres)
+                  </label>
+                  <input
+                    type="text"
+                    value={modalNewPassword}
+                    onChange={(e) => setModalNewPassword(e.target.value)}
+                    placeholder="Ex: NovaSenha@2026"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setResetPwdModalUser(null)}
+                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmResetPassword}
+                    className="px-4 py-1.5 text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white rounded-lg shadow-sm"
+                  >
+                    Salvar Nova Senha
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

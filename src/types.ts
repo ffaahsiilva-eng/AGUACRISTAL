@@ -1,14 +1,41 @@
 export type UserRole = 'ADMINISTRADOR' | 'OPERADOR' | 'VISUALIZACAO';
+export type UserStatus = 'Ativo' | 'Pendente' | 'Inativo' | 'Bloqueado';
 
 export interface User {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   role: UserRole;
+  status?: UserStatus;
   avatarUrl?: string;
   password?: string;
+  password_hash?: string;
+  salt?: string;
+  email_verified?: boolean;
+  ultimo_login?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface UserSession {
+  token: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userRole: UserRole;
+  rememberMe: boolean;
+  expiresAt: number; // timestamp in ms
+  createdAt: number;
+}
+
+export interface PasswordResetToken {
+  id: string;
+  email: string;
+  token: string;
+  expires_at: string; // ISO string
+  used: boolean;
+  created_at: string;
 }
 
 export type PaymentMethod = 
@@ -246,6 +273,7 @@ export interface CompanySettings {
   default_commission_rate: number; // e.g. 2.5
   default_unit_price: number; // e.g. 27.50
   currency: string;
+  require_admin_approval_for_new_users?: boolean; // Exigir aprovação do administrador por padrão
 }
 
 export interface CompanyInfo {
@@ -266,8 +294,21 @@ export interface AuditLog {
   timestamp: string;
   user_name: string;
   user_id: string;
-  action: 'Criação' | 'Alteração' | 'Exclusão' | 'Pagamento' | 'Entrega' | 'CREATE' | 'UPDATE' | 'DELETE';
-  entity_type: 'Venda' | 'Entrega' | 'Cliente' | 'Motorista' | 'Despesa' | 'Pagamento' | 'Configuração' | string;
+  action:
+    | 'Criação'
+    | 'Alteração'
+    | 'Exclusão'
+    | 'Pagamento'
+    | 'Entrega'
+    | 'Login'
+    | 'Logout'
+    | 'Aprovação'
+    | 'Solicitação'
+    | 'CREATE'
+    | 'UPDATE'
+    | 'DELETE'
+    | string;
+  entity_type: 'Venda' | 'Entrega' | 'Cliente' | 'Motorista' | 'Despesa' | 'Pagamento' | 'Configuração' | 'Sessão' | 'Segurança' | string;
   entity?: string;
   entity_id: string;
   description: string;

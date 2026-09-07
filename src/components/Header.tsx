@@ -10,9 +10,13 @@ import {
   Shield,
   Eye,
   CheckCircle2,
+  Settings,
+  LogOut,
+  User as UserIcon,
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { storage } from '../services/storage';
+import { UserProfileModal } from './UserProfileModal';
 
 interface HeaderProps {
   onOpenGlobalSearch: () => void;
@@ -21,6 +25,8 @@ interface HeaderProps {
   onToggleMobileMenu: () => void;
   todaySalesTotal: number;
   todayDeliveriesCount: number;
+  onNavigateToTab?: (tab: string) => void;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,14 +36,36 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMobileMenu,
   todaySalesTotal,
   todayDeliveriesCount,
+  onNavigateToTab,
+  onLogout,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const currentUser = storage.getCurrentUser();
   const allUsers = storage.getUsers();
 
   const handleSwitchUser = (user: User) => {
     storage.setCurrentUser(user);
     setShowUserMenu(false);
+  };
+
+  const handleOpenProfile = () => {
+    setShowUserMenu(false);
+    setShowProfileModal(true);
+  };
+
+  const handleGoToSettings = () => {
+    setShowUserMenu(false);
+    if (onNavigateToTab) {
+      onNavigateToTab('configuracoes');
+    }
+  };
+
+  const handleLogoutClick = () => {
+    setShowUserMenu(false);
+    if (onLogout) {
+      onLogout();
+    }
   };
 
   const getRoleIcon = (role: UserRole) => {
@@ -141,42 +169,99 @@ export const Header: React.FC<HeaderProps> = ({
           {showUserMenu && (
             <div
               id="user-profile-dropdown"
-              className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2"
+              className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-2"
             >
-              <div className="px-4 py-2 border-b border-slate-100">
-                <p className="text-xs text-slate-400 font-medium">Conectado como:</p>
-                <p className="text-sm font-bold text-slate-800">{currentUser.name}</p>
-                <p className="text-xs text-slate-500">{currentUser.email}</p>
+              {/* User Identity Header */}
+              <div className="px-4 py-2.5 border-b border-slate-100">
+                <p className="text-[11px] text-slate-400 font-medium">Conectado como:</p>
+                <p className="text-sm font-bold text-slate-800 leading-tight">{currentUser.name}</p>
+                <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-100 text-sky-800">
+                    {currentUser.role}
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                    Sessão Ativa
+                  </span>
+                </div>
               </div>
 
-              <div className="px-3 py-2">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1">
-                  Alternar Perfil de Acesso:
+              {/* Action Links */}
+              <div className="py-1.5 px-2 border-b border-slate-100">
+                <button
+                  id="menu-my-profile-btn"
+                  onClick={handleOpenProfile}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors text-left cursor-pointer"
+                >
+                  <UserIcon className="w-4 h-4 text-slate-500" />
+                  <span>Meu Perfil</span>
+                </button>
+
+                <button
+                  id="menu-settings-btn"
+                  onClick={handleGoToSettings}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-colors text-left cursor-pointer"
+                >
+                  <Settings className="w-4 h-4 text-slate-500" />
+                  <span>Configurações</span>
+                </button>
+              </div>
+
+              {/* Fast Switcher for Demo */}
+              <div className="px-2 py-2 border-b border-slate-100">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-2">
+                  Alternar Usuário:
                 </p>
-                {allUsers.map((user) => (
-                  <button
-                    key={user.id}
-                    onClick={() => handleSwitchUser(user)}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      user.id === currentUser.id
-                        ? 'bg-sky-50 text-sky-700 font-bold'
-                        : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {getRoleIcon(user.role)}
-                      <span>{user.name}</span>
-                    </div>
-                    {user.id === currentUser.id && (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-sky-600" />
-                    )}
-                  </button>
-                ))}
+                <div className="space-y-0.5 max-h-36 overflow-y-auto">
+                  {allUsers
+                    .filter((u) => (u.status || 'Ativo') === 'Ativo')
+                    .map((user) => (
+                      <button
+                        key={user.id}
+                        onClick={() => handleSwitchUser(user)}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                          user.id === currentUser.id
+                            ? 'bg-sky-50 text-sky-700 font-bold'
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          {getRoleIcon(user.role)}
+                          <span className="truncate">{user.name}</span>
+                        </div>
+                        {user.id === currentUser.id && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              {/* Logout Option */}
+              <div className="pt-1.5 px-2">
+                <button
+                  id="menu-logout-btn"
+                  onClick={handleLogoutClick}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors text-left cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 text-rose-600" />
+                  <span>Sair</span>
+                </button>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* User Profile Modal */}
+      {showProfileModal && (
+        <UserProfileModal
+          user={currentUser}
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          onUpdateSuccess={() => setShowProfileModal(false)}
+        />
+      )}
     </header>
   );
 };

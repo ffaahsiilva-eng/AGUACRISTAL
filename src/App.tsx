@@ -26,10 +26,21 @@ import {
   SettingsView,
 } from './views';
 import { storage } from './services/storage';
-import { Sale, Delivery, Expense, Client, Driver } from './types';
-import { formatDate, formatCurrency } from './utils/formatters';
+import { authService } from './services/auth';
+import { AuthView } from './views/auth/AuthView';
+import { Sale, Delivery, Expense, Client, Driver, User } from './types';
+import { formatDate, formatCurrency, getTodayDateString } from './utils/formatters';
 
 export function App() {
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const sessionRes = authService.getSession();
+    return sessionRes.user;
+  });
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState<boolean>(() => {
+    const sessionRes = authService.getSession();
+    return sessionRes.expired;
+  });
+
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
@@ -329,21 +340,100 @@ export function App() {
     (s) => !s.is_deleted && s.sale_status !== 'Cancelada' && (s.pending_amount || 0) > 0
   ).length;
 
+  const todayStr = getTodayDateString();
+  const todaySalesTotal = salesList
+    .filter((s) => !s.is_deleted && s.sale_status !== 'Cancelada' && s.sale_date === todayStr)
+    .reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+  const todayDeliveriesCount = deliveriesList.filter(
+    (d) => d.delivery_date === todayStr
+  ).length;
+
+  // Session monitor: checks for token/session expiration
+  useEffect(() => {
+    if (!currentUser) return;
+    const interval = setInterval(() => {
+      const sessionRes = authService.getSession();
+      if (!sessionRes.user || sessionRes.expired) {
+        setCurrentUser(null);
+        setSessionExpiredNotice(true);
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
+  // Auth Handlers
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    setSessionExpiredNotice(false);
+    setActiveTab('dashboard');
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setCurrentUser(null);
+    setSessionExpiredNotice(false);
+  };
+
+  // Role Permissions
+  const isVisualizer = currentUser?.role === 'VISUALIZACAO';
+
+  const handleNavigateTab = (tab: string) => {
+    if (isVisualizer && (tab === 'settings' || tab === 'configuracoes')) {
+      alert('Acesso restrito: o perfil de Visualização não possui acesso às Configurações do sistema.');
+      return;
+    }
+    setActiveTab(tab);
+  };
+
+  const handlePermittedNewSale = (preselectedClient?: Client) => {
+    if (isVisualizer) {
+      alert('Acesso restrito: seu perfil de Visualização permite apenas consulta.');
+      return;
+    }
+    handleOpenNewSale(preselectedClient);
+  };
+
+  const handlePermittedQuickSale = () => {
+    if (isVisualizer) {
+      alert('Acesso restrito: seu perfil de Visualização permite apenas consulta.');
+      return;
+    }
+    setIsQuickSaleModalOpen(true);
+  };
+
+  const handlePermittedNewExpense = () => {
+    if (isVisualizer) {
+      alert('Acesso restrito: seu perfil de Visualização permite apenas consulta.');
+      return;
+    }
+    handleOpenNewExpense();
+  };
+
+  // Route Protection: If not authenticated, render the complete Auth module
+  if (!currentUser) {
+    return (
+      <AuthView
+        onLoginSuccess={handleLoginSuccess}
+        initialExpiredNotice={sessionExpiredNotice}
+      />
+    );
+  }
+
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 antialiased overflow-hidden">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleNavigateTab}
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
         isMobileOpen={isMobileMenuOpen}
         setIsMobileOpen={setIsMobileMenuOpen}
-        onOpenNewSale={() => handleOpenNewSale()}
-        onOpenQuickSale={() => setIsQuickSaleModalOpen(true)}
+        onOpenNewSale={() => handlePermittedNewSale()}
+        onOpenQuickSale={() => handlePermittedQuickSale()}
         pendingDeliveriesCount={pendingDeliveriesCount}
         pendingReceivablesCount={pendingReceivablesCount}
-        onLogout={() => {}}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -352,8 +442,12 @@ export function App() {
         <Header
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onOpenGlobalSearch={() => setIsSearchModalOpen(true)}
-          onOpenQuickSale={() => setIsQuickSaleModalOpen(true)}
-          onOpenNewSale={() => handleOpenNewSale()}
+          onOpenQuickSale={() => handlePermittedQuickSale()}
+          onOpenNewSale={() => handlePermittedNewSale()}
+          todaySalesTotal={todaySalesTotal}
+          todayDeliveriesCount={todayDeliveriesCount}
+          onNavigateToTab={handleNavigateTab}
+          onLogout={handleLogout}
         />
 
         {/* Scrollable View Area */}
@@ -361,10 +455,10 @@ export function App() {
           <div className="max-w-7xl mx-auto pb-12">
             {activeTab === 'dashboard' && (
               <DashboardView
-                onNavigate={(tab) => setActiveTab(tab)}
-                onOpenNewSale={() => handleOpenNewSale()}
-                onOpenQuickSale={() => setIsQuickSaleModalOpen(true)}
-                onOpenNewExpense={() => handleOpenNewExpense()}
+                onNavigate={handleNavigateTab}
+                onOpenNewSale={() => handlePermittedNewSale()}
+                onOpenQuickSale={() => handlePermittedQuickSale()}
+                onOpenNewExpense={() => handlePermittedNewExpense()}
               />
             )}
 
