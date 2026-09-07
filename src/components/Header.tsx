@@ -96,15 +96,8 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Logo" className="h-6 w-auto object-contain" />
-              <div className="flex flex-col">
-                <span className="font-extrabold text-slate-900 text-sm md:text-base tracking-tight font-sans">
-                  GESTÃO ÁGUA CRISTAL SUL
-                </span>
-                <span className="text-[10px] text-slate-500 hidden sm:block md:hidden">
-                  Controle de Vendas e Financeiro
-                </span>
-              </div>
+              <img src="/logo.png" alt="Logo" className="h-10 md:h-12 w-auto object-contain scale-125 origin-left" />
+              
               <span className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
                 <Droplets className="w-3 h-3 text-sky-500 fill-sky-400" />
                 Distribuidora Oficial

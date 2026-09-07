@@ -175,7 +175,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
     >
       <div
         id="expense-modal-box"
-        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[90vh]"
+        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[90dvh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -212,7 +212,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
                   Controle Especial de Combustível / Abastecimento
                 </span>
                 <span className="text-[11px] text-slate-500">
-                  Calcula automaticamente: Litros × Preço por Litro e registra odômetro/veículo
+                  Calcula automaticamente: Litros × Preço por Litro e registra odômetro
                 </span>
               </div>
             </div>
@@ -407,41 +407,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Motorista Relacionado
-              </label>
-              <select
-                value={driverId}
-                onChange={(e) => handleDriverChange(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 bg-white"
-              >
-                <option value="">Nenhum / Não aplicável</option>
-                {drivers.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Veículo Relacionado
-              </label>
-              <select
-                value={vehicleId}
-                onChange={(e) => handleVehicleChange(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 bg-white"
-              >
-                <option value="">Nenhum / Não aplicável</option>
-                {vehicles.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.model} ({v.plate})
-                  </option>
-                ))}
-              </select>
-            </div>
+            
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -483,6 +451,54 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
               placeholder="Ex: Manutenção preventiva periódica, óleo trocado..."
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500"
             />
+          </div>
+
+          {/* Anexo de Comprovante */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Foto do Comprovante / Nota
+            </label>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 cursor-pointer transition-colors">
+                <Upload className="w-4 h-4" />
+                <span>Escolher Imagem</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setReceiptAttachment(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+              {receiptAttachment && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                    Imagem Anexada
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setReceiptAttachment(undefined)}
+                    className="p-1 text-slate-400 hover:text-rose-500 rounded bg-white border border-slate-200 hover:bg-rose-50"
+                    title="Remover anexo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+            {receiptAttachment && (
+              <div className="mt-3">
+                <img src={receiptAttachment} alt="Comprovante" className="max-h-40 rounded-xl border border-slate-200 object-contain bg-slate-50" />
+              </div>
+            )}
           </div>
         </form>
 

@@ -156,7 +156,7 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
     >
       <div
         id="quick-sale-modal-box"
-        className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+        className="w-[calc(100%-24px)] md:w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90dvh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Banner Header */}
@@ -196,7 +196,8 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
         )}
 
         {/* Quick Form */}
-        <form onSubmit={handleSaveAndNew} className="p-6 space-y-4">
+        <form onSubmit={handleSaveAndNew} className="flex-1 overflow-hidden flex flex-col">
+          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -347,8 +348,9 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
             </div>
           </div>
 
+          </div>
           {/* Action Buttons: SALVAR E NOVO & Finalizar */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+          <div className="p-4 sm:p-6 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center gap-3 shrink-0">
             <button
               type="submit"
               id="btn-save-and-new"

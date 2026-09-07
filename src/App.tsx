@@ -331,7 +331,7 @@ export function App() {
         { line: '1. RECEITA OPERACIONAL BRUTA (Vendas de Água)', valFormatted: formatCurrency(dreData.grossRevenue) },
         { line: '(-) Despesas com Combustível', valFormatted: `- ${formatCurrency(dreData.fuelExpenses)}` },
         { line: '(-) Manutenção de Frotas & Veículos', valFormatted: `- ${formatCurrency(dreData.maintenanceExpenses)}` },
-        { line: '(-) Comissões dos Motoristas', valFormatted: `- ${formatCurrency(dreData.commissionsExpenses)}` },
+        { line: '(-) Minhas Comissões', valFormatted: `- ${formatCurrency(dreData.commissionsExpenses)}` },
         { line: '(-) Salários e Pessoal', valFormatted: `- ${formatCurrency(dreData.salariesExpenses)}` },
         { line: '(-) Demais Despesas Operacionais', valFormatted: `- ${formatCurrency(dreData.otherExpenses)}` },
         { line: 'TOTAL DE DEDUÇÕES E CUSTOS', valFormatted: `- ${formatCurrency(dreData.totalDeductions)}` },

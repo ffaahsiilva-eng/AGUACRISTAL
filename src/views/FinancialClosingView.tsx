@@ -99,7 +99,7 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
         { Linha: '(-) Despesas com Combustível', Valor: -fuelExpenses },
         { Linha: '(-) Manutenção de Veículos e Peças', Valor: -maintenanceExpenses },
         { Linha: '(-) Salários e Pessoal', Valor: -salariesExpenses },
-        { Linha: '(-) Comissões dos Motoristas', Valor: -commissionsExpenses },
+        { Linha: '(-) Minhas Comissões', Valor: -commissionsExpenses },
         { Linha: '(-) Demais Despesas Operacionais', Valor: -otherExpenses },
         { Linha: '(=) RESULTADO LÍQUIDO DO MÊS', Valor: netResult },
         { Linha: 'Margem Líquida (%)', Valor: `${profitMargin.toFixed(1)}%` },
@@ -270,7 +270,7 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
               <div className="flex items-center gap-2.5">
                 <Award className="w-4 h-4 text-indigo-600 shrink-0" />
                 <div>
-                  <span className="font-bold text-slate-800">(-) Comissões dos Motoristas</span>
+                  <span className="font-bold text-slate-800">(-) Minhas Comissões</span>
                   <span className="text-slate-400 block text-[11px]">
                     Comissões variáveis calculadas sobre vendas
                   </span>

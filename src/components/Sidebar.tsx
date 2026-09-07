@@ -75,9 +75,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'clientes' as ActiveTab, label: 'Clientes', icon: Users },
     { id: 'motoristas' as ActiveTab, label: 'Motoristas', icon: UserCheck },
     { id: 'despesas' as ActiveTab, label: 'Despesas', icon: TrendingDown },
-    { id: 'contas-receber' as ActiveTab, label: 'Contas a Receber', icon: Clock, badge: pendingReceivablesCount, badgeColor: 'bg-amber-500' },
     { id: 'financeiro' as ActiveTab, label: 'Financeiro', icon: DollarSign },
-    { id: 'comissoes' as ActiveTab, label: 'Comissões', icon: Percent },
+    { id: 'comissoes' as ActiveTab, label: 'Minhas Comissões', icon: Percent },
     { id: 'relatorios' as ActiveTab, label: 'Relatórios', icon: FileBarChart },
     { id: 'fechamento-mensal' as ActiveTab, label: 'Fechamento Mensal', icon: CalendarCheck2 },
     { id: 'configuracoes' as ActiveTab, label: 'Configurações', icon: Settings },
@@ -119,17 +118,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="flex items-center gap-3 cursor-pointer select-none overflow-hidden"
           title="Água Cristal Sul"
         >
-          <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain shrink-0" />
+          <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain shrink-0 scale-125 origin-left" />
           {!isCollapsed && (
             <div className="flex flex-col truncate">
-              <span className="font-extrabold text-sm tracking-wide text-white font-sans uppercase">
-                Água Cristal Sul
-              </span>
-              <span className="text-[10px] text-sky-400 font-medium tracking-tight truncate">
-                Gestão & Distribuição
+              <span className="font-extrabold text-white text-sm tracking-tight truncate">
+                ÁGUA CRISTAL SUL
               </span>
             </div>
           )}
+          
         </div>
 
         <button

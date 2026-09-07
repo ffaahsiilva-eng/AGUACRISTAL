@@ -240,7 +240,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
     >
       <div
         id="sale-modal-box"
-        className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[90vh]"
+        className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-6 flex flex-col max-h-[90dvh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -502,9 +502,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Comissão (%)
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Minha Comissão (%)</label>
                 <input
                   type="number"
                   min="0"
@@ -525,7 +523,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
                     Cálculo Automático: {numQuantity} un × {formatCurrency(numUnitPrice)}
                   </span>
                   <span className="text-xs text-slate-500 font-medium">
-                    Comissão prevista ({numCommissionRate}%): {formatCurrency(commissionAmount)}
+                    Minha Comissão prevista ({numCommissionRate}%): {formatCurrency(commissionAmount)}
                   </span>
                 </div>
               </div>

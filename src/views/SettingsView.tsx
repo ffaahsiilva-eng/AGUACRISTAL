@@ -440,7 +440,7 @@ export const SettingsView: React.FC = () => {
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Comissão Padrão do Motorista (%)
+                  Minha Comissão (%)
                 </label>
                 <input
                   type="number"
@@ -450,7 +450,7 @@ export const SettingsView: React.FC = () => {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
                 <span className="text-[11px] text-slate-400 mt-0.5 block">
-                  Percentual padrão aplicado sobre o total de cada venda entregue.
+                  Percentual padrão aplicado sobre o total de cada venda e contabilizado em minhas comissões.
                 </span>
               </div>
             </div>

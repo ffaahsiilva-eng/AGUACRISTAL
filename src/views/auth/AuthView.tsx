@@ -347,15 +347,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
         {/* Top Header Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Logo" className="w-14 h-14 object-contain brightness-0 invert" />
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white font-sans">
-                ÁGUA CRISTAL SUL
-              </h1>
-              <p className="text-xs font-semibold tracking-wider uppercase text-sky-400">
-                Gestão & Distribuição
-              </p>
-            </div>
+            <img src="/logo.png" alt="Logo" className="w-20 h-20 object-contain brightness-0 invert scale-125 origin-left" />
+            
           </div>
         </div>
 
@@ -370,7 +363,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
           </h2>
           <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-8">
             Controle de ponta a ponta para a distribuição de galões de 20L, comodatos de vasilhames,
-            comissões automatizadas para motoristas e fechamento diário do caixa.
+            comissões automatizadas e fechamento diário do caixa.
           </p>
 
           {/* Value pillars */}
@@ -408,15 +401,8 @@ export const AuthView: React.FC<AuthViewProps> = ({
         <div className="w-full max-w-md">
           {/* Mobile Logo Header (Shown on phone only: < md) */}
           <div className="md:hidden flex items-center gap-3 mb-5 pb-3 border-b border-slate-200">
-            <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain" />
-            <div>
-              <h1 className="text-base font-black tracking-tight text-slate-900 font-sans">
-                ÁGUA CRISTAL SUL
-              </h1>
-              <p className="text-[10px] font-bold tracking-wider uppercase text-sky-600">
-                Gestão & Distribuição
-              </p>
-            </div>
+            <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain scale-125 origin-left" />
+            
           </div>
           {/* ======================================================== */}
           {/* SCREEN 1: LOGIN */}

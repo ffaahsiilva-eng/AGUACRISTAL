@@ -505,14 +505,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        {/* Card 7: Comissões dos Motoristas */}
+        {/* Card 7: Minhas Comissões */}
         <div
           onClick={onNavigateToCommissions}
           className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:bg-slate-50 cursor-pointer transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Comissões Motoristas
+              Minhas Comissões
             </span>
             <div className="p-2 rounded-xl bg-indigo-100 text-indigo-700">
               <Award className="w-4 h-4" />

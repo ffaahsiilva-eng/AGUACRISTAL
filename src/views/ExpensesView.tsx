@@ -51,7 +51,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       if (startDate && e.expense_date < startDate) return false;
       if (endDate && e.expense_date > endDate) return false;
       if (selectedCategory && e.category_id !== selectedCategory) return false;
-      if (selectedDriver && e.driver_id !== selectedDriver) return false;
+      
       if (selectedVehicle && e.vehicle_id !== selectedVehicle) return false;
 
       if (searchTerm) {
@@ -92,7 +92,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
         Categoria: e.category_name,
         Valor: e.amount,
         'Forma Pagamento': e.payment_method,
-        Motorista: e.driver_name || '-',
+        
         Veículo: e.vehicle_name || '-',
         Fornecedor: e.supplier || '-',
         'Nº Documento': e.doc_number || '-',
@@ -112,10 +112,10 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-black text-slate-900 font-sans">
-            Despesas & Custos Operacionais
+            Minhas Despesas
           </h1>
           <p className="text-xs text-slate-500">
-            Controle financeiro de saídas, abastecimento de combustível, frotas e manutenção.
+            Controle das minhas despesas do dia a dia.
           </p>
         </div>
 
@@ -281,22 +281,6 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Motorista:</label>
-            <select
-              value={selectedDriver}
-              onChange={(e) => setSelectedDriver(e.target.value)}
-              className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
-            >
-              <option value="">Todos</option>
-              {drivers.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Veículo:</label>
             <select
               value={selectedVehicle}
@@ -314,6 +298,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
         </div>
       </div>
 
+      
       {/* Expenses Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
@@ -324,43 +309,62 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
               <div className="py-12 text-center text-slate-400">Nenhuma despesa encontrada com os filtros selecionados.</div>
             ) : (
               filteredExpenses.map((exp) => (
-                <div key={"mob-"+exp.id} className="p-4 bg-white">
+                <div key={"mob-"+exp.id} className="p-4 bg-white hover:bg-slate-50 transition-colors">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="font-bold text-slate-800">{formatDate(exp.date)}</span>
+                    <span className="font-bold text-rose-600 text-[10px] uppercase bg-rose-50 px-2 py-0.5 rounded">{exp.code}</span>
                     <span className="font-bold text-rose-600">{formatCurrency(exp.amount)}</span>
                   </div>
-                  <div className="mb-3">
-                    <div className="font-bold text-slate-900 truncate">{exp.description}</div>
-                    <div className="text-[11px] text-slate-500">{exp.category} {exp.vehicle_name ? `• ${exp.vehicle_name}` : ''}</div>
+                  <div className="mb-2">
+                    <div className="font-bold text-slate-900">{exp.description}</div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      {formatDate(exp.expense_date)} • {exp.category_name}
+                    </div>
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                    <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold ${exp.status === 'Pago' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                      {exp.status}
-                    </span>
-                    <div className="flex gap-2">
-                      <button onClick={() => onEditExpense(exp)} className="p-2 rounded-lg border border-slate-200 text-sky-600 bg-white">
-                        Editar
-                      </button>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block px-2 py-1 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                        {exp.payment_method}
+                      </span>
+                      {exp.receipt_attachment && (
+                        <button
+                          onClick={() => window.open(exp.receipt_attachment, '_blank')}
+                          className="flex items-center gap-1 text-[10px] font-bold text-sky-600 bg-sky-50 px-2 py-1 rounded border border-sky-100"
+                        >
+                          Ver Nota
+                        </button>
+                      )}
                     </div>
+                    {canEdit && (
+                      <div className="flex gap-2">
+                        <button onClick={() => onEditExpense(exp)} className="p-1.5 text-sky-600 bg-sky-50 rounded-lg border border-sky-100">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => onDeleteExpense(exp)} className="p-1.5 text-rose-600 bg-rose-50 rounded-lg border border-rose-100">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
             )}
           </div>
+          
           <table className="hidden md:table w-full text-left text-xs border-collapse">
             <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase text-[11px] tracking-wide">
               <tr>
+                <th className="py-3 px-3 whitespace-nowrap text-center">Cód.</th>
                 <th className="py-3 px-3 whitespace-nowrap">Data</th>
                 <th className="py-3 px-3 min-w-[200px]">Descrição</th>
                 <th className="py-3 px-3 min-w-[120px]">Categoria</th>
-                <th className="py-3 px-3 min-w-[150px]">Veículo Relacionado</th>
                 <th className="py-3 px-3 text-right whitespace-nowrap">Valor</th>
-                <th className="py-3 px-3 text-center whitespace-nowrap">Status</th>
+                <th className="py-3 px-3 text-center whitespace-nowrap">Pgto</th>
+                <th className="py-3 px-3 min-w-[150px]">Fornecedor</th>
+                <th className="py-3 px-3 text-center whitespace-nowrap">Anexo</th>
                 <th className="py-3 px-3 text-center whitespace-nowrap">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-
               {filteredExpenses.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-400">
@@ -370,7 +374,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
               ) : (
                 filteredExpenses.map((exp) => (
                   <tr key={exp.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-3 px-3 font-bold text-rose-600 whitespace-nowrap">
+                    <td className="py-3 px-3 font-bold text-rose-600 text-center whitespace-nowrap">
                       {exp.code}
                     </td>
                     <td className="py-3 px-3 text-slate-600 whitespace-nowrap">
@@ -389,23 +393,27 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                         {exp.category_name}
                       </span>
                     </td>
-                    <td className="py-3 px-3">
-                      {exp.vehicle_name && (
-                        <span className="text-slate-800 font-medium block">{exp.vehicle_name}</span>
-                      )}
-                      {exp.driver_name && (
-                        <span className="text-[11px] text-slate-500">{exp.driver_name}</span>
-                      )}
-                      {!exp.vehicle_name && !exp.driver_name && '-'}
-                    </td>
                     <td className="py-3 px-3 text-right font-black text-rose-600">
                       {formatCurrency(exp.amount)}
                     </td>
-                    <td className="py-3 px-3 text-slate-600">{exp.payment_method}</td>
+                    <td className="py-3 px-3 text-center text-slate-600 font-medium">{exp.payment_method}</td>
                     <td className="py-3 px-3 text-slate-500 text-[11px]">
                       {exp.supplier && <span className="block font-medium text-slate-700">{exp.supplier}</span>}
                       {exp.doc_number && <span>Doc: {exp.doc_number}</span>}
                       {!exp.supplier && !exp.doc_number && '-'}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {exp.receipt_attachment ? (
+                        <button
+                          onClick={() => window.open(exp.receipt_attachment, '_blank')}
+                          className="inline-flex items-center justify-center p-1.5 text-sky-600 bg-sky-50 hover:bg-sky-100 rounded-lg border border-sky-200 transition-colors"
+                          title="Ver Comprovante/Nota"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-image"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                        </button>
+                      ) : (
+                        <span className="text-slate-300">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-3 text-center whitespace-nowrap">
                       {canEdit && (

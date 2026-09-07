@@ -360,7 +360,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
         'Status Venda': s.sale_status || 'Confirmada',
         'Valor Pago': s.amount_paid,
         'Saldo a Receber': s.pending_amount,
-        'Comissão Motorista (R$)': s.commission_amount,
+        'Minha Comissão (R$)': s.commission_amount,
         Observação: s.observation || '',
       })),
       `Vendas_Agua_Cristal_Sul_${todayStr}`
