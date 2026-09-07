@@ -1,3 +1,5 @@
+import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, query, writeBatch } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import {
   User,
   Client,
@@ -93,6 +95,131 @@ class StorageService {
     this.init();
   }
 
+  
+  
+  public async startFirestoreSync() {
+    console.log('Starting Firestore sync...');
+    const localUsers = this.getUsers();
+    const localClients = this.getClients();
+    const localDrivers = this.getDrivers();
+    const localSettings = this.getSettings();
+    const localCompanyInfo = this.getCompanyInfo();
+
+    // Migrate Users if not in Firestore
+    const usersSnap = await getDocs(collection(db, 'users'));
+    if (usersSnap.empty && localUsers.length > 0) {
+      const batch = writeBatch(db);
+      localUsers.forEach(u => batch.set(doc(db, 'users', u.id), u));
+      await batch.commit();
+    }
+
+    // Migrate Clients
+    const clientsSnap = await getDocs(collection(db, 'clients'));
+    if (clientsSnap.empty && localClients.length > 0) {
+      const batch = writeBatch(db);
+      localClients.forEach(c => batch.set(doc(db, 'clients', c.id), c));
+      await batch.commit();
+    }
+
+    // Migrate Drivers
+    const driversSnap = await getDocs(collection(db, 'drivers'));
+    if (driversSnap.empty && localDrivers.length > 0) {
+      const batch = writeBatch(db);
+      localDrivers.forEach(d => batch.set(doc(db, 'drivers', d.id), d));
+      await batch.commit();
+    }
+
+    // Migrate Settings
+    const settingsSnap = await getDocs(collection(db, 'settings'));
+    if (settingsSnap.empty) {
+      await setDoc(doc(db, 'settings', 'company'), localSettings);
+      await setDoc(doc(db, 'settings', 'company_info'), localCompanyInfo);
+    }
+
+    
+    // Migrate Sales
+    const salesSnap = await getDocs(collection(db, 'sales'));
+    if (salesSnap.empty && this.getSales().length > 0) {
+      const batch = writeBatch(db);
+      this.getSales().forEach(s => batch.set(doc(db, 'sales', s.id), s));
+      await batch.commit();
+    }
+
+    // Migrate Deliveries
+    const deliveriesSnap = await getDocs(collection(db, 'deliveries'));
+    if (deliveriesSnap.empty && this.getDeliveries().length > 0) {
+      const batch = writeBatch(db);
+      this.getDeliveries().forEach(d => batch.set(doc(db, 'deliveries', d.id), d));
+      await batch.commit();
+    }
+
+    // Migrate Expenses
+    const expensesSnap = await getDocs(collection(db, 'expenses'));
+    if (expensesSnap.empty && this.getExpenses().length > 0) {
+      const batch = writeBatch(db);
+      this.getExpenses().forEach(e => batch.set(doc(db, 'expenses', e.id), e));
+      await batch.commit();
+    }
+
+    // Listeners for Sales, Deliveries, Expenses
+    onSnapshot(collection(db, 'sales'), (snapshot) => {
+      const items: any[] = [];
+      snapshot.forEach(doc => items.push(doc.data()));
+      setItem(STORAGE_KEYS.SALES, items);
+      notifyStorageChange();
+    });
+
+    onSnapshot(collection(db, 'deliveries'), (snapshot) => {
+      const items: any[] = [];
+      snapshot.forEach(doc => items.push(doc.data()));
+      setItem(STORAGE_KEYS.DELIVERIES, items);
+      notifyStorageChange();
+    });
+
+    onSnapshot(collection(db, 'expenses'), (snapshot) => {
+      const items: any[] = [];
+      snapshot.forEach(doc => items.push(doc.data()));
+      setItem(STORAGE_KEYS.EXPENSES, items);
+      notifyStorageChange();
+    });
+
+    // Now start listeners
+    onSnapshot(collection(db, 'users'), (snapshot) => {
+      const items: any[] = [];
+      snapshot.forEach(doc => items.push(doc.data()));
+      setItem(STORAGE_KEYS.USERS, items);
+      notifyStorageChange();
+    });
+
+    onSnapshot(collection(db, 'clients'), (snapshot) => {
+      const items: any[] = [];
+      snapshot.forEach(doc => items.push(doc.data()));
+      setItem(STORAGE_KEYS.CLIENTS, items);
+      notifyStorageChange();
+    });
+
+    onSnapshot(collection(db, 'drivers'), (snapshot) => {
+      const items: any[] = [];
+      snapshot.forEach(doc => items.push(doc.data()));
+      setItem(STORAGE_KEYS.DRIVERS, items);
+      notifyStorageChange();
+    });
+
+    onSnapshot(doc(db, 'settings', 'company_info'), (docSnap) => {
+      if (docSnap.exists()) {
+        setItem('aguacristal_company_info_v2', docSnap.data());
+        notifyStorageChange();
+      }
+    });
+
+    onSnapshot(doc(db, 'settings', 'company'), (docSnap) => {
+      if (docSnap.exists()) {
+        setItem(STORAGE_KEYS.SETTINGS, docSnap.data());
+        notifyStorageChange();
+      }
+    });
+  }
+
   public init() {
     const DATA_VERSION = "v_real_data_imperatriz_2026_08";
     const currentVersion = localStorage.getItem("acs_data_version");
@@ -120,6 +247,19 @@ class StorageService {
       setItem(STORAGE_KEYS.AUDIT_LOGS, initial.auditLogs);
       localStorage.setItem("acs_data_version", DATA_VERSION);
     }
+
+    // Patch require_admin_approval_for_new_users
+    const currentSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+    if (currentSettings) {
+      try {
+        const parsed = JSON.parse(currentSettings);
+        if (parsed.require_admin_approval_for_new_users !== false && !localStorage.getItem('acs_approval_patched')) {
+          parsed.require_admin_approval_for_new_users = false;
+          localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(parsed));
+          localStorage.setItem('acs_approval_patched', 'true');
+        }
+      } catch (e) {}
+    }
   }
 
   // Current User & Auth
@@ -136,17 +276,16 @@ class StorageService {
     return getItem<User[]>(STORAGE_KEYS.USERS, DEFAULT_USERS);
   }
 
-  public saveUser(user: User): void {
-    const users = this.getUsers();
-    const index = users.findIndex((u) => u.id === user.id);
-    if (index >= 0) {
-      users[index] = { ...user, updated_at: new Date().toISOString() };
-    } else {
-      users.push({ ...user, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+  public async saveUser(user: User): Promise<void> {
+    const now = new Date().toISOString();
+    
+    if (!user.created_at) {
+      user.created_at = now;
     }
-    setItem(STORAGE_KEYS.USERS, users);
-    this.logAudit('Alteração', 'Configuração', user.id, `Usuário ${user.name} atualizado`);
-    notifyStorageChange();
+    user.updated_at = now;
+    
+    await setDoc(doc(db, 'users', user.id), user);
+    this.logAudit(user.created_at === now ? 'Criação' : 'Alteração', 'Usuário', user.id, `Usuário ${user.name} atualizado`);
   }
 
   // Settings
@@ -154,14 +293,13 @@ class StorageService {
     return getItem<CompanySettings>(STORAGE_KEYS.SETTINGS, DEFAULT_SETTINGS);
   }
 
-  public updateSettings(settings: CompanySettings): void {
-    setItem(STORAGE_KEYS.SETTINGS, settings);
+  public async updateSettings(settings: CompanySettings): Promise<void> {
+    await setDoc(doc(db, 'settings', 'company'), settings);
     this.logAudit('Alteração', 'Configuração', 'settings', 'Configurações gerais da empresa atualizadas');
-    notifyStorageChange();
   }
 
-  public saveSettings(settings: CompanySettings): void {
-    this.updateSettings(settings);
+  public async saveSettings(settings: CompanySettings): Promise<void> {
+    await this.updateSettings(settings);
   }
 
   // Categories
@@ -196,32 +334,26 @@ class StorageService {
     return this.getClients().find((c) => c.id === id);
   }
 
-  public saveClient(client: Client): Client {
-    const clients = this.getClients();
+  public async saveClient(client: Client): Promise<Client> {
     const currentUser = this.getCurrentUser();
     const now = new Date().toISOString();
-
-    const index = clients.findIndex((c) => c.id === client.id);
-    if (index >= 0) {
-      clients[index] = { ...client, updated_at: now };
-      this.logAudit('Alteração', 'Cliente', client.id, `Cliente ${client.name} atualizado`);
-    } else {
+    
+    if (!client.created_at) {
       client.created_at = now;
-      client.updated_at = now;
       client.created_by = currentUser.name;
-      clients.unshift(client);
-      this.logAudit('Criação', 'Cliente', client.id, `Novo cliente cadastrado: ${client.name}`);
     }
-    setItem(STORAGE_KEYS.CLIENTS, clients);
-    notifyStorageChange();
+    client.updated_at = now;
+    
+    await setDoc(doc(db, 'clients', client.id), client);
+    this.logAudit(client.created_at === now ? 'Criação' : 'Alteração', 'Cliente', client.id, `Cliente ${client.name} salvo via Firestore`);
     return client;
   }
 
-  public toggleClientStatus(id: string): Client | undefined {
+  public async toggleClientStatus(id: string): Promise<Client | undefined> {
     const client = this.getClientById(id);
     if (!client) return undefined;
     const newStatus = client.status === 'Inativo' ? 'Ativo' : 'Inativo';
-    const updated = this.saveClient({
+    const updated = await this.saveClient({
       ...client,
       status: newStatus,
     });
@@ -234,7 +366,7 @@ class StorageService {
     return updated;
   }
 
-  public addClientAddress(clientId: string, addressData: Omit<ClientAddress, 'id'>): Client | undefined {
+  public async addClientAddress(clientId: string, addressData: Omit<ClientAddress, "id">): Promise<Client | undefined> {
     const client = this.getClientById(clientId);
     if (!client) return undefined;
     const now = new Date().toISOString();
@@ -249,7 +381,7 @@ class StorageService {
     if (newAddr.principal) {
       addresses.forEach((a) => (a.principal = false));
     }
-    const updated = this.saveClient({
+    const updated = await this.saveClient({
       ...client,
       enderecos_adicionais: [...addresses, newAddr],
     });
@@ -262,7 +394,7 @@ class StorageService {
     return updated;
   }
 
-  public updateClientAddress(clientId: string, address: ClientAddress): Client | undefined {
+  public async updateClientAddress(clientId: string, address: ClientAddress): Promise<Client | undefined> {
     const client = this.getClientById(clientId);
     if (!client) return undefined;
     const addresses = [...(client.enderecos_adicionais || [])];
@@ -272,7 +404,7 @@ class StorageService {
         addresses.forEach((a) => (a.principal = false));
       }
       addresses[index] = { ...address, updated_at: new Date().toISOString() };
-      const updated = this.saveClient({
+      const updated = await this.saveClient({
         ...client,
         enderecos_adicionais: addresses,
       });
@@ -281,17 +413,17 @@ class StorageService {
     return client;
   }
 
-  public deleteClientAddress(clientId: string, addressId: string): Client | undefined {
+  public async deleteClientAddress(clientId: string, addressId: string): Promise<Client | undefined> {
     const client = this.getClientById(clientId);
     if (!client) return undefined;
     const addresses = (client.enderecos_adicionais || []).filter((a) => a.id !== addressId);
-    return this.saveClient({
+    return await this.saveClient({
       ...client,
       enderecos_adicionais: addresses,
     });
   }
 
-  public setDefaultClientAddress(clientId: string, addressId: string): Client | undefined {
+  public async setDefaultClientAddress(clientId: string, addressId: string): Promise<Client | undefined> {
     const client = this.getClientById(clientId);
     if (!client) return undefined;
     const addresses = (client.enderecos_adicionais || []).map((a) => ({
@@ -299,7 +431,7 @@ class StorageService {
       principal: a.id === addressId,
     }));
     const target = addresses.find((a) => a.id === addressId);
-    return this.saveClient({
+    return await this.saveClient({
       ...client,
       address: target?.logradouro || client.address,
       number: target?.numero || client.number,
@@ -313,7 +445,7 @@ class StorageService {
     });
   }
 
-  public addClientNote(clientId: string, text: string): Client | undefined {
+  public async addClientNote(clientId: string, text: string): Promise<Client | undefined> {
     const client = this.getClientById(clientId);
     if (!client || !text.trim()) return undefined;
     const currentUser = this.getCurrentUser();
@@ -325,7 +457,7 @@ class StorageService {
       observacao: text.trim(),
     };
     const notes = [newNote, ...(client.notas_internas || [])];
-    const updated = this.saveClient({
+    const updated = await this.saveClient({
       ...client,
       notas_internas: notes,
     });
@@ -355,24 +487,16 @@ class StorageService {
     return this.getDrivers().find((d) => d.id === id);
   }
 
-  public saveDriver(driver: Driver): Driver {
-    const drivers = this.getDrivers();
-    const currentUser = this.getCurrentUser();
+  public async saveDriver(driver: Driver): Promise<Driver> {
     const now = new Date().toISOString();
-
-    const index = drivers.findIndex((d) => d.id === driver.id);
-    if (index >= 0) {
-      drivers[index] = { ...driver, updated_at: now };
-      this.logAudit('Alteração', 'Motorista', driver.id, `Motorista ${driver.name} atualizado`);
-    } else {
+    
+    if (!driver.created_at) {
       driver.created_at = now;
-      driver.updated_at = now;
-      driver.created_by = currentUser.name;
-      drivers.push(driver);
-      this.logAudit('Criação', 'Motorista', driver.id, `Novo motorista cadastrado: ${driver.name}`);
     }
-    setItem(STORAGE_KEYS.DRIVERS, drivers);
-    notifyStorageChange();
+    driver.updated_at = now;
+    
+    await setDoc(doc(db, 'drivers', driver.id), driver);
+    this.logAudit(driver.created_at === now ? 'Criação' : 'Alteração', 'Motorista', driver.id, `Motorista ${driver.name} salvo via Firestore`);
     return driver;
   }
 
@@ -427,7 +551,7 @@ class StorageService {
     return `V-${String(maxNum + 1).padStart(5, '0')}`;
   }
 
-  public saveSale(saleData: Partial<Sale>, createDelivery = true): Sale {
+  public async saveSale(saleData: Partial<Sale>, createDelivery = true): Promise<Sale> {
     const sales = this.getSales();
     const currentUser = this.getCurrentUser();
     const settings = this.getSettings();
@@ -562,12 +686,11 @@ class StorageService {
       this.syncDeliveryForSale(sale);
     }
 
-    setItem(STORAGE_KEYS.SALES, sales);
-    notifyStorageChange();
+    await setDoc(doc(db, 'sales', sale.id), sale);
     return sale;
   }
 
-  public cancelSale(id: string): Sale | undefined {
+  public async cancelSale(id: string): Promise<Sale | undefined> {
     const sales = this.getSales();
     const index = sales.findIndex((s) => s.id === id);
     if (index < 0) return undefined;
@@ -601,7 +724,7 @@ class StorageService {
     return sales[index];
   }
 
-  public duplicateSale(id: string): Sale | undefined {
+  public async duplicateSale(id: string): Promise<Sale | undefined> {
     const sale = this.getSaleById(id);
     if (!sale) return undefined;
     const today = getTodayDateString();
@@ -633,10 +756,10 @@ class StorageService {
       commission_rate: sale.commission_rate,
       observation: sale.observation ? `Cópia da venda ${sale.code} - ${sale.observation}` : `Cópia da venda ${sale.code}`,
     };
-    return this.saveSale(newSaleData, false);
+    return await this.saveSale(newSaleData, false);
   }
 
-  public deleteSale(id: string): void {
+  public async deleteSale(id: string): Promise<void> {
     const sale = this.getSaleById(id);
     const sales = this.getSales().filter((s) => s.id !== id);
     setItem(STORAGE_KEYS.SALES, sales);
@@ -670,7 +793,7 @@ class StorageService {
     return `ENT-${String(maxNum + 1).padStart(5, '0')}`;
   }
 
-  public generateDeliveryForSale(sale: Sale): Delivery {
+  public async generateDeliveryForSale(sale: Sale): Promise<Delivery> {
     const deliveries = this.getDeliveries();
     const existing = deliveries.find((d) => d.sale_id === sale.id);
     if (existing) return existing;
@@ -721,7 +844,7 @@ class StorageService {
     return delivery;
   }
 
-  public syncDeliveryForSale(sale: Sale): void {
+  public async syncDeliveryForSale(sale: Sale): Promise<void> {
     const deliveries = this.getDeliveries();
     const index = deliveries.findIndex((d) => d.sale_id === sale.id);
     if (index >= 0) {
@@ -739,7 +862,7 @@ class StorageService {
     }
   }
 
-  public saveDelivery(delivery: Delivery): Delivery {
+  public async saveDelivery(delivery: Delivery): Promise<Delivery> {
     const deliveries = this.getDeliveries();
     const now = new Date().toISOString();
     const index = deliveries.findIndex((d) => d.id === delivery.id);
@@ -760,12 +883,11 @@ class StorageService {
       this.logAudit('Criação', 'Entrega', delivery.id, `Nova entrega ${delivery.code} criada`);
     }
 
-    setItem(STORAGE_KEYS.DELIVERIES, deliveries);
-    notifyStorageChange();
+    await setDoc(doc(db, 'deliveries', delivery.id), delivery);
     return delivery;
   }
 
-  public updateDeliveryStatus(id: string, status: Delivery['status']): void {
+  public async updateDeliveryStatus(id: string, status: Delivery["status"]): Promise<void> {
     const deliveries = this.getDeliveries();
     const index = deliveries.findIndex((d) => d.id === id);
     if (index >= 0) {
@@ -792,7 +914,7 @@ class StorageService {
     }
   }
 
-  public deleteDelivery(id: string): void {
+  public async deleteDelivery(id: string): Promise<void> {
     const deliveries = this.getDeliveries().filter((d) => d.id !== id);
     setItem(STORAGE_KEYS.DELIVERIES, deliveries);
     this.logAudit('Exclusão', 'Entrega', id, `Entrega excluída ID: ${id}`);
@@ -817,7 +939,7 @@ class StorageService {
     return `DESP-${String(maxNum + 1).padStart(5, '0')}`;
   }
 
-  public saveExpense(expenseData: Partial<Expense>): Expense {
+  public async saveExpense(expenseData: Partial<Expense>): Promise<Expense> {
     const expenses = this.getExpenses();
     const currentUser = this.getCurrentUser();
     const now = new Date().toISOString();
@@ -884,12 +1006,11 @@ class StorageService {
       );
     }
 
-    setItem(STORAGE_KEYS.EXPENSES, expenses);
-    notifyStorageChange();
+    await setDoc(doc(db, 'expenses', expense.id), expense);
     return expense;
   }
 
-  public deleteExpense(id: string): void {
+  public async deleteExpense(id: string): Promise<void> {
     const expense = this.getExpenses().find((e) => e.id === id);
     const expenses = this.getExpenses().filter((e) => e.id !== id);
     setItem(STORAGE_KEYS.EXPENSES, expenses);
@@ -990,93 +1111,30 @@ class StorageService {
     };
   }
 
-  public saveCompanyInfo(info: CompanyInfo): void {
-    this.saveSettings({
-      company_name: info.name,
-      trade_name: info.trade_name,
-      cnpj: info.cnpj,
-      phone: info.phone,
-      email: info.email,
-      address: info.address,
-      city: info.city,
-      state: info.state,
-      default_unit_price: info.default_gallon_price,
-      default_commission_rate: info.default_driver_commission,
-      currency: 'BRL',
-    });
+  public async saveCompanyInfo(info: CompanyInfo): Promise<void> {
+    await setDoc(doc(db, 'settings', 'company_info'), info);
+    this.logAudit('Alteração', 'Configuração', 'company', 'Dados da empresa atualizados via Firestore');
   }
 
-  // Backup aliases
-  public importBackupJSON(jsonString: string): boolean {
-    return this.restoreBackupJSON(jsonString);
-  }
-
-  public resetToDemoData(): void {
-    this.resetToDefault();
-  }
-
-  // Backup & Restore
   public exportBackupJSON(): string {
-    const backupData = {
-      version: '2.0',
-      exported_at: new Date().toISOString(),
-      company: this.getSettings().company_name,
-      users: this.getUsers(),
-      settings: this.getSettings(),
-      categories: this.getCategories(),
-      clients: this.getClients(),
-      drivers: this.getDrivers(),
-      vehicles: this.getVehicles(),
-      sales: this.getSales(),
-      deliveries: this.getDeliveries(),
-      expenses: this.getExpenses(),
-      payments: this.getPayments(),
-      auditLogs: this.getAuditLogs(),
-    };
-    return JSON.stringify(backupData, null, 2);
+    return JSON.stringify(localStorage);
   }
 
-  public restoreBackupJSON(jsonString: string): boolean {
+  public importBackupJSON(jsonStr: string): boolean {
     try {
-      const data = JSON.parse(jsonString);
-      if (!data.sales || !Array.isArray(data.sales)) {
-        throw new Error('Arquivo de backup inválido.');
-      }
-      if (data.users) setItem(STORAGE_KEYS.USERS, data.users);
-      if (data.settings) setItem(STORAGE_KEYS.SETTINGS, data.settings);
-      if (data.categories) setItem(STORAGE_KEYS.CATEGORIES, data.categories);
-      if (data.clients) setItem(STORAGE_KEYS.CLIENTS, data.clients);
-      if (data.drivers) setItem(STORAGE_KEYS.DRIVERS, data.drivers);
-      if (data.vehicles) setItem(STORAGE_KEYS.VEHICLES, data.vehicles);
-      if (data.sales) setItem(STORAGE_KEYS.SALES, data.sales);
-      if (data.deliveries) setItem(STORAGE_KEYS.DELIVERIES, data.deliveries);
-      if (data.expenses) setItem(STORAGE_KEYS.EXPENSES, data.expenses);
-      if (data.payments) setItem(STORAGE_KEYS.PAYMENTS, data.payments);
-      if (data.auditLogs) setItem(STORAGE_KEYS.AUDIT_LOGS, data.auditLogs);
-
-      this.logAudit('Alteração', 'Configuração', 'system', 'Restauração completa do banco de dados realizada com sucesso');
+      const data = JSON.parse(jsonStr);
+      Object.keys(data).forEach(key => {
+        localStorage.setItem(key, data[key]);
+      });
       notifyStorageChange();
       return true;
-    } catch (err) {
-      console.error('Falha ao restaurar backup:', err);
+    } catch (e) {
       return false;
     }
   }
 
-  public resetToDefault(): void {
-    const initial = generateInitialData();
-    setItem(STORAGE_KEYS.USERS, initial.users);
-    setItem(STORAGE_KEYS.CURRENT_USER, initial.currentUser);
-    setItem(STORAGE_KEYS.SETTINGS, initial.settings);
-    setItem(STORAGE_KEYS.CATEGORIES, initial.categories);
-    setItem(STORAGE_KEYS.DRIVERS, initial.drivers);
-    setItem(STORAGE_KEYS.VEHICLES, initial.vehicles);
-    setItem(STORAGE_KEYS.CLIENTS, initial.clients);
-    setItem(STORAGE_KEYS.SALES, initial.sales);
-    setItem(STORAGE_KEYS.DELIVERIES, initial.deliveries);
-    setItem(STORAGE_KEYS.EXPENSES, initial.expenses);
-    setItem(STORAGE_KEYS.PAYMENTS, initial.payments);
-    setItem(STORAGE_KEYS.AUDIT_LOGS, initial.auditLogs);
+  public resetToDemoData(): void {
+    this.init();
     notifyStorageChange();
   }
 }

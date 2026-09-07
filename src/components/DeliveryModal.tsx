@@ -68,9 +68,9 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
     setVehicleName(v ? `${v.model} (${v.plate})` : '');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const updated = storage.saveDelivery({
+    const updated = await storage.saveDelivery({
       ...delivery,
       status,
       driver_id: driverId || undefined,

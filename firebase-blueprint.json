@@ -1,0 +1,73 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Customers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "razao_social": { "type": "string" },
+        "cnpj_cpf": { "type": "string" }
+      }
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "Sales records.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sale_date": { "type": "string" }
+      }
+    },
+    "Delivery": {
+      "title": "Delivery",
+      "description": "Delivery records.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" }
+      }
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Expense records.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User documents."
+    },
+    "/clients/{clientId}": {
+      "schema": { "$ref": "#/entities/Client" },
+      "description": "Client documents."
+    },
+    "/sales/{saleId}": {
+      "schema": { "$ref": "#/entities/Sale" },
+      "description": "Sale documents."
+    },
+    "/deliveries/{deliveryId}": {
+      "schema": { "$ref": "#/entities/Delivery" },
+      "description": "Delivery documents."
+    },
+    "/expenses/{expenseId}": {
+      "schema": { "$ref": "#/entities/Expense" },
+      "description": "Expense documents."
+    }
+  }
+}

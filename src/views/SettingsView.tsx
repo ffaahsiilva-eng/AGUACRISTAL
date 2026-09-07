@@ -15,7 +15,6 @@ import {
   Trash2,
   CheckCircle2,
   AlertTriangle,
-  UserCheck,
   UserX,
   Lock,
   KeyRound,
@@ -33,9 +32,7 @@ export const SettingsView: React.FC = () => {
 
   // Settings & Approval policy
   const companySettings = storage.getSettings();
-  const [requireApproval, setRequireApproval] = useState(
-    companySettings.require_admin_approval_for_new_users !== false
-  );
+  
 
   // Company state
   const currentCompany = storage.getCompanyInfo();
@@ -62,40 +59,11 @@ export const SettingsView: React.FC = () => {
   const [modalNewPassword, setModalNewPassword] = useState('');
 
   // Policy toggle handler
-  const handleToggleApproval = (require: boolean) => {
-    setRequireApproval(require);
-    const curr = storage.getSettings();
-    const updated = {
-      ...curr,
-      require_admin_approval_for_new_users: require,
-    };
-    storage.updateSettings(updated);
-    setSaveSuccessMessage(
-      require
-        ? 'Política atualizada: novos cadastros exigem aprovação do Administrador.'
-        : 'Política atualizada: novos cadastros são ativados automaticamente como Operador.'
-    );
-    setTimeout(() => setSaveSuccessMessage(null), 3000);
-  };
+  
 
-  const handleApproveUser = (user: User) => {
-    const updated: User = {
-      ...user,
-      status: 'Ativo',
-      updated_at: new Date().toISOString(),
-    };
-    storage.saveUser(updated);
-    storage.logAudit(
-      'Aprovação',
-      'Configuração',
-      user.id,
-      `Administrador ${currentUser.name} aprovou o acesso de ${user.name}`
-    );
-    setSaveSuccessMessage(`Acesso de ${user.name} aprovado com sucesso!`);
-    setTimeout(() => setSaveSuccessMessage(null), 3000);
-  };
+  
 
-  const handleStatusChange = (user: User, newStatus: UserStatus) => {
+  const handleStatusChange = async (user: User, newStatus: UserStatus) => {
     if (user.id === currentUser.id && (newStatus === 'Inativo' || newStatus === 'Bloqueado')) {
       alert('Você não pode desativar ou bloquear sua própria conta de administrador.');
       return;
@@ -116,7 +84,7 @@ export const SettingsView: React.FC = () => {
     setTimeout(() => setSaveSuccessMessage(null), 3000);
   };
 
-  const handleRoleChange = (user: User, newRole: UserRole) => {
+  const handleRoleChange = async (user: User, newRole: UserRole) => {
     if (user.id === currentUser.id && newRole !== 'ADMINISTRADOR') {
       alert('Você não pode remover seu próprio perfil de Administrador.');
       return;
@@ -180,7 +148,7 @@ export const SettingsView: React.FC = () => {
   // Audit logs
   const auditLogs = storage.getAuditLogs();
 
-  const handleSaveCompany = (e: React.FormEvent) => {
+  const handleSaveCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     const updated: CompanyInfo = {
       name: companyName,
@@ -194,7 +162,7 @@ export const SettingsView: React.FC = () => {
       default_gallon_price: Number(defaultPrice) || 27.5,
       default_driver_commission: Number(defaultCommission) || 2.5,
     };
-    storage.saveCompanyInfo(updated);
+    await storage.saveCompanyInfo(updated);
     setSaveSuccessMessage('Dados da empresa e parâmetros comerciais salvos com sucesso!');
     setTimeout(() => setSaveSuccessMessage(null), 3000);
   };
@@ -214,7 +182,7 @@ export const SettingsView: React.FC = () => {
     const salt = generateSalt();
     const password_hash = await hashPassword(pwd, salt);
 
-    storage.saveUser({
+    await storage.saveUser({
       id: `usr-${Date.now()}`,
       name: newUserName.trim(),
       email: newUserEmail.trim().toLowerCase(),
@@ -503,60 +471,6 @@ export const SettingsView: React.FC = () => {
       {/* Tab 2: Users */}
       {activeTab === 'users' && (
         <div className="space-y-6">
-          {/* Policy Card: User Registration Approval */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-3">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-sky-600" />
-              <h3 className="text-sm font-bold text-slate-900">
-                Cadastro e Aprovação de Novos Usuários
-              </h3>
-            </div>
-            <p className="text-xs text-slate-500">
-              Configure como o sistema trata novas contas criadas através do formulário de cadastro.
-            </p>
-
-            <div className="pt-2 space-y-2.5 max-w-xl">
-              <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
-                <input
-                  type="radio"
-                  name="approvalPolicy"
-                  checked={!requireApproval}
-                  onChange={() => handleToggleApproval(false)}
-                  className="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300"
-                />
-                <div className="text-xs">
-                  <span className="font-semibold text-slate-800 block">
-                    Aprovação automática como Operador
-                  </span>
-                  <span className="text-slate-500 text-[11px]">
-                    O usuário pode realizar login imediatamente após preencher o cadastro.
-                  </span>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-3 p-3 rounded-xl border border-sky-200 bg-sky-50/40 hover:bg-sky-50 cursor-pointer transition-colors">
-                <input
-                  type="radio"
-                  name="approvalPolicy"
-                  checked={requireApproval}
-                  onChange={() => handleToggleApproval(true)}
-                  className="w-4 h-4 text-sky-600 focus:ring-sky-500 border-slate-300"
-                />
-                <div className="text-xs">
-                  <span className="font-bold text-slate-900 block flex items-center gap-1.5">
-                    Exigir aprovação do Administrador
-                    <span className="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-md">
-                      Recomendado por padrão
-                    </span>
-                  </span>
-                  <span className="text-slate-500 text-[11px]">
-                    Novas contas permanecem com status <strong>Pendente</strong> até que você as aprove nesta tela.
-                  </span>
-                </div>
-              </label>
-            </div>
-          </div>
-
           {/* User List */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
@@ -636,16 +550,7 @@ export const SettingsView: React.FC = () => {
                       </select>
 
                       {/* Action: Approve pending user */}
-                      {userStatus === 'Pendente' && (
-                        <button
-                          type="button"
-                          onClick={() => handleApproveUser(u)}
-                          className="flex items-center gap-1 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
-                        >
-                          <UserCheck className="w-3.5 h-3.5" />
-                          <span>Aprovar Acesso</span>
-                        </button>
-                      )}
+                      
 
                       {/* Action: Toggle Active / Inactive / Block */}
                       {userStatus === 'Ativo' && currentUser.id !== u.id && (

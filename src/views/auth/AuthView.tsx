@@ -21,6 +21,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { authService } from '../../services/auth';
+import { storage } from '../../services/storage';
 import { User, PasswordResetToken } from '../../types';
 
 interface AuthViewProps {
@@ -260,22 +261,16 @@ export const AuthView: React.FC<AuthViewProps> = ({
   };
 
   // Handler: Forgot Password Request
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail.trim()) return;
 
     setForgotLoading(true);
-    setTimeout(() => {
-      const res = authService.requestPasswordReset(forgotEmail);
-      setForgotLoading(false);
-      setForgotSubmitted(true);
-      setResendCooldown(45);
-      if (res.resetToken) {
-        setSimulatedToken(res.resetToken);
-      } else {
-        setSimulatedToken(null);
-      }
-    }, 600);
+    const res = await authService.requestPasswordReset(forgotEmail);
+    setForgotLoading(false);
+    setForgotSubmitted(true);
+    setResendCooldown(45);
+    setSimulatedToken(null);
   };
 
   // Open reset password screen with token
@@ -837,8 +832,10 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 <div className="p-3 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-[11px] flex items-start gap-2">
                   <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
                   <span>
-                    Novos cadastros são criados inicialmente com perfil <strong>Operador</strong> e
-                    aguardam aprovação de um Administrador.
+                    Novos cadastros são criados inicialmente com perfil <strong>Operador</strong>
+                    {storage.getSettings().require_admin_approval_for_new_users !== false
+                      ? ' e aguardam aprovação de um Administrador.'
+                      : '.'}
                   </span>
                 </div>
 
@@ -938,7 +935,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
                   </button>
                 </form>
               ) : (
-                <div className="space-y-5 animate-in fade-in">
+                  <div className="space-y-5 animate-in fade-in">
                   {/* Generic safe confirmation message */}
                   <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-2">
                     <div className="flex items-center gap-2 font-bold text-sm text-emerald-800">
@@ -950,40 +947,6 @@ export const AuthView: React.FC<AuthViewProps> = ({
                       as instruções para redefinir sua senha.
                     </p>
                   </div>
-
-                  {/* Interactive simulated email card with 1-click test link */}
-                  {simulatedToken && (
-                    <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 space-y-3 shadow-lg">
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800 pb-2">
-                        <span className="font-semibold text-sky-400">
-                          ✉️ Simulação de Notificação por E-mail
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> Válido por 60 min
-                        </span>
-                      </div>
-                      <div className="text-xs space-y-1">
-                        <p className="text-slate-400">
-                          Para: <span className="text-slate-200">{simulatedToken.email}</span>
-                        </p>
-                        <p className="text-slate-400">
-                          Assunto:{' '}
-                          <span className="text-slate-200">Redefinição de senha - Água Cristal Sul</span>
-                        </p>
-                      </div>
-                      <div className="pt-2">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenResetWithToken(simulatedToken)}
-                          className="w-full py-2.5 px-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md"
-                        >
-                          <KeyRound className="w-4 h-4 text-slate-950" />
-                          <span>REDEFINIR SENHA AGORA (Abrir Link)</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Resend button */}
                   <div className="flex items-center justify-between pt-2">

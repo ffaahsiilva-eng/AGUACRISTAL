@@ -53,14 +53,14 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     }
 
     setLoading(true);
-    setTimeout(() => {
+    (async () => {
       const updatedUser: User = {
         ...user,
         name: name.trim(),
         phone: phone.trim(),
         updated_at: new Date().toISOString(),
       };
-      storage.saveUser(updatedUser);
+      await storage.saveUser(updatedUser);
       storage.setCurrentUser(updatedUser);
       storage.logAudit(
         'Alteração',
@@ -71,7 +71,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       setLoading(false);
       setMessage({ type: 'success', text: 'Dados atualizados com sucesso!' });
       onUpdateSuccess(updatedUser);
-    }, 400);
+    })()
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {

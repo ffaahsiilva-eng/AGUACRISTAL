@@ -121,7 +121,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const numPriceLiter = Number(fuelPricePerLiter) || 0;
   const computedFuelTotal = Math.round(numLiters * numPriceLiter * 100) / 100;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     let finalAmount = Number(amount) || 0;
@@ -134,7 +134,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       return;
     }
 
-    const saved = storage.saveExpense({
+    const saved = await storage.saveExpense({
       id: expenseToEdit?.id,
       code: expenseToEdit?.code,
       expense_date: expenseDate,

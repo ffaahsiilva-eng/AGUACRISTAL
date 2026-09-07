@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS: CompanySettings = {
   default_commission_rate: 2.5,
   default_unit_price: 25.5,
   currency: 'BRL',
-  require_admin_approval_for_new_users: true,
+  require_admin_approval_for_new_users: false,
 };
 
 export const DEFAULT_CATEGORIES: ExpenseCategory[] = [

@@ -221,7 +221,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     }
   };
 
-  const handleSave = (andOpenSale = false) => {
+  const handleSave = async (andOpenSale = false) => {
     const newErrors: Record<string, string> = {};
 
     if (!name.trim()) {
@@ -294,7 +294,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       updated_at: now,
     };
 
-    const saved = storage.saveClient(clientPayload);
+    const saved = await storage.saveClient(clientPayload);
     onSaved(saved, andOpenSale);
     onClose();
   };

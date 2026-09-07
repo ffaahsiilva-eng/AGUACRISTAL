@@ -63,7 +63,7 @@ export const DriversView: React.FC<DriversViewProps> = ({ onSelectDriverHistory 
     setIsModalOpen(true);
   };
 
-  const handleSaveDriver = (e: React.FormEvent) => {
+  const handleSaveDriver = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       alert('Nome do motorista é obrigatório.');
@@ -71,7 +71,7 @@ export const DriversView: React.FC<DriversViewProps> = ({ onSelectDriverHistory 
     }
 
     const now = new Date().toISOString();
-    storage.saveDriver({
+    await storage.saveDriver({
       id: editingDriver ? editingDriver.id : `drv-${Date.now()}`,
       name: name.trim(),
       cpf: cpf.trim(),

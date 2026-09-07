@@ -46,11 +46,12 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     }
   };
 
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
     let imported = 0;
-    parsedRows.forEach((row) => {
+    
+    for (const row of parsedRows) {
       if (row.isValid) {
-        storage.saveSale(
+        await storage.saveSale(
           {
             client_name: row.client_name,
             client_document: row.client_document,
@@ -70,7 +71,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         );
         imported++;
       }
-    });
+    }
 
     onImportComplete(imported);
     handleClose();

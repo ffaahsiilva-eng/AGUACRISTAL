@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from './lib/firebase';
 import {
   Sidebar,
   Header,
@@ -32,14 +35,39 @@ import { Sale, Delivery, Expense, Client, Driver, User } from './types';
 import { formatDate, formatCurrency, getTodayDateString } from './utils/formatters';
 
 export function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const sessionRes = authService.getSession();
-    return sessionRes.user;
-  });
-  const [sessionExpiredNotice, setSessionExpiredNotice] = useState<boolean>(() => {
-    const sessionRes = authService.getSession();
-    return sessionRes.expired;
-  });
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState<boolean>(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data() as User;
+            if (userData.status === 'Inativo' || userData.status === 'Bloqueado') {
+              setCurrentUser(null);
+              authService.logout();
+            } else {
+              setCurrentUser(userData);
+              storage.setCurrentUser(userData); // Keep sync for legacy modules
+              storage.startFirestoreSync(); // Start syncing other data
+            }
+          } else {
+            setCurrentUser(null);
+          }
+        } catch (e) {
+          console.error("Error fetching user profile:", e);
+          setCurrentUser(null);
+        }
+      } else {
+        setCurrentUser(null);
+      }
+      setIsAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -348,19 +376,6 @@ export function App() {
     (d) => d.delivery_date === todayStr
   ).length;
 
-  // Session monitor: checks for token/session expiration
-  useEffect(() => {
-    if (!currentUser) return;
-    const interval = setInterval(() => {
-      const sessionRes = authService.getSession();
-      if (!sessionRes.user || sessionRes.expired) {
-        setCurrentUser(null);
-        setSessionExpiredNotice(true);
-      }
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [currentUser]);
-
   // Auth Handlers
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
@@ -370,8 +385,6 @@ export function App() {
 
   const handleLogout = () => {
     authService.logout();
-    setCurrentUser(null);
-    setSessionExpiredNotice(false);
   };
 
   // Role Permissions
@@ -410,6 +423,14 @@ export function App() {
   };
 
   // Route Protection: If not authenticated, render the complete Auth module
+  if (isAuthLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-100">
+        <div className="text-sky-600 animate-pulse font-medium">Carregando sistema...</div>
+      </div>
+    );
+  }
+
   if (!currentUser) {
     return (
       <AuthView

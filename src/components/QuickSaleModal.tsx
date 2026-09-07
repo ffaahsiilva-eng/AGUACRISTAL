@@ -85,7 +85,7 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
   const numUnitPrice = Math.max(0, Number(unitPrice) || 0);
   const totalAmount = Math.round(numQuantity * numUnitPrice * 100) / 100;
 
-  const saveCurrent = (): Sale | null => {
+  const saveCurrent = async () => {
     if (!clientInput.trim()) {
       alert('Por favor, informe o nome do cliente.');
       clientInputRef.current?.focus();
@@ -98,7 +98,7 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
 
     const matchedClient = selectedClientId ? clients.find((c) => c.id === selectedClientId) : undefined;
 
-    const saved = storage.saveSale(
+    const saved = await storage.saveSale(
       {
         sale_date: date,
         client_id: selectedClientId || undefined,
@@ -131,16 +131,16 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
     return saved;
   };
 
-  const handleSaveAndNew = (e: React.FormEvent) => {
+  const handleSaveAndNew = async (e: React.FormEvent) => {
     e.preventDefault();
-    const s = saveCurrent();
+    const s = await saveCurrent();
     if (s) {
       resetFields();
     }
   };
 
-  const handleSaveAndClose = () => {
-    const s = saveCurrent();
+  const handleSaveAndClose = async () => {
+    const s = await saveCurrent();
     if (s) {
       onClose();
     }

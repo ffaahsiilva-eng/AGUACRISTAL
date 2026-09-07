@@ -64,10 +64,10 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   const onTheWayCount = deliveries.filter((d) => !d.is_deleted && d.status === 'Saiu para entrega').length;
   const deliveredCount = deliveries.filter((d) => !d.is_deleted && d.status === 'Entregue').length;
 
-  const handleQuickMarkDelivered = (d: Delivery) => {
+  const handleQuickMarkDelivered = async (d: Delivery) => {
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    storage.saveDelivery({
+    await storage.saveDelivery({
       ...d,
       status: 'Entregue',
       delivery_time: timeStr,

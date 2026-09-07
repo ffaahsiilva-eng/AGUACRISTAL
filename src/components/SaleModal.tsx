@@ -162,7 +162,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
   const numCommissionRate = Number(commissionRate) || 0;
   const commissionAmount = Math.round(totalAmount * (numCommissionRate / 100) * 100) / 100;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
@@ -181,7 +181,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
       return;
     }
 
-    const saved = storage.saveSale(
+    const saved = await storage.saveSale(
       {
         id: saleToEdit?.id,
         code: saleToEdit?.code,

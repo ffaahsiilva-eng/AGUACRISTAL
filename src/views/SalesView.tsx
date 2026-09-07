@@ -92,7 +92,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
     message: '',
     confirmText: 'Confirmar',
     isDestructive: false,
-    onConfirm: () => {},
+    onConfirm: async () => {},
   });
 
   // Action toast message
@@ -275,8 +275,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
       message: `Deseja duplicar a venda ${sale.code} do cliente ${sale.client_name}? Uma nova venda com data de hoje será gerada com os mesmos itens e valores.`,
       confirmText: 'Sim, Duplicar',
       isDestructive: false,
-      onConfirm: () => {
-        const duplicated = storage.duplicateSale(sale.id);
+      onConfirm: async () => {
+        const duplicated = await storage.duplicateSale(sale.id);
         setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
         if (duplicated) {
           showToast(`Venda duplicada com sucesso! Novo pedido: ${duplicated.code}`);
@@ -298,15 +298,15 @@ export const SalesView: React.FC<SalesViewProps> = ({
       message: `Deseja gerar a ordem de entrega para a venda ${sale.code} (${sale.client_name} - ${sale.quantity} un)? A venda será atualizada para "Em entrega".`,
       confirmText: 'Gerar Entrega',
       isDestructive: false,
-      onConfirm: () => {
-        const delivery = storage.generateDeliveryForSale(sale);
+      onConfirm: async () => {
+        const delivery = await storage.generateDeliveryForSale(sale);
         setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
         showToast(`Ordem de entrega ${delivery.code} gerada com sucesso!`);
       },
     });
   };
 
-  const handleCancelSale = (sale: Sale) => {
+  const handleCancelSale = async (sale: Sale) => {
     if (sale.sale_status === 'Cancelada') {
       showToast(`A venda ${sale.code} já se encontra cancelada.`);
       return;
@@ -318,8 +318,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
       message: `Atenção: Ao cancelar a venda ${sale.code}, o status será marcado como "Cancelada", a ordem de entrega vinculada será cancelada e o saldo a receber será zerado. Deseja prosseguir?`,
       confirmText: 'Sim, Cancelar Venda',
       isDestructive: true,
-      onConfirm: () => {
-        const cancelled = storage.cancelSale(sale.id);
+      onConfirm: async () => {
+        const cancelled = await storage.cancelSale(sale.id);
         setConfirmConfig((prev) => ({ ...prev, isOpen: false }));
         if (cancelled) {
           showToast(`Venda ${sale.code} cancelada com sucesso.`);
