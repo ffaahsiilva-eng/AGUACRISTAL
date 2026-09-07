@@ -547,53 +547,6 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 </button>
               </form>
 
-              {/* Demo 1-Click Credentials Box for Instant Testing */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-slate-700 flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
-                    <KeyRound className="w-3.5 h-3.5 text-sky-600" />
-                    Acesso Rápido de Teste (1 clique)
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('admin@aguacristalsul.com.br', 'Cristal@2026')}
-                    className="p-2 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 text-left transition-all"
-                  >
-                    <span className="block font-bold text-slate-900 text-[11px]">👑 Administrador</span>
-                    <span className="text-[10px] text-slate-500 block truncate">admin@aguacristalsul...</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('operador@aguacristalsul.com.br', 'Operador@2026')}
-                    className="p-2 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 text-left transition-all"
-                  >
-                    <span className="block font-bold text-slate-900 text-[11px]">📦 Operador</span>
-                    <span className="text-[10px] text-slate-500 block truncate">operador@aguacristalsul...</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('diretoria@aguacristalsul.com.br', 'Diretoria@2026')}
-                    className="p-2 rounded-lg bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 text-left transition-all"
-                  >
-                    <span className="block font-bold text-slate-900 text-[11px]">👁️ Visualizador</span>
-                    <span className="text-[10px] text-slate-500 block truncate">diretoria@aguacristalsul...</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('lucas.andrade@aguacristalsul.com.br', 'Lucas@2026')}
-                    className="p-2 rounded-lg bg-white hover:bg-amber-50 border border-slate-200 hover:border-amber-300 text-left transition-all"
-                  >
-                    <span className="block font-bold text-amber-900 text-[11px]">⏳ Pendente</span>
-                    <span className="text-[10px] text-slate-500 block truncate">lucas.andrade@...</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Bottom Register Switch */}
               <div className="pt-2 text-center border-t border-slate-100">
                 <p className="text-xs text-slate-500">
