@@ -284,9 +284,9 @@ export function App() {
   };
 
   // Handlers for Commissions Print
-  const handlePrintCommissionStatement = (driverName: string, items: any[], totals: any) => {
+  const handlePrintCommissionStatement = (items: any[], totals: any) => {
     setPrintConfig({
-      title: `Extrato & Recibo de Comissão - ${driverName}`,
+      title: 'Extrato & Recibo de Minhas Comissões',
       periodText: `Emissão para conferência e assinatura de pagamento de comissão`,
       summaryCards: [
         { label: 'Total Comissão a Pagar', value: formatCurrency(totals.totalCommission) },

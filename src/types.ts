@@ -130,7 +130,6 @@ export interface Driver {
   cnh: string;
   cnh_category: string;
   cnh_expiry?: string;
-  commission_rate_default?: number;
   status: 'Ativo' | 'Inativo';
   observation?: string;
   is_deleted?: boolean;

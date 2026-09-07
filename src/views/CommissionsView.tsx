@@ -13,7 +13,7 @@ import { formatCurrency, formatDate, formatNumber, getTodayDateString } from '..
 import { exportToExcel } from '../utils/excel';
 
 interface CommissionsViewProps {
-  onPrintCommissionStatement: (driverName: string, items: any[], totals: any) => void;
+  onPrintCommissionStatement: (items: any[], totals: any) => void;
 }
 
 export const CommissionsView: React.FC<CommissionsViewProps> = ({
@@ -79,7 +79,7 @@ export const CommissionsView: React.FC<CommissionsViewProps> = ({
   };
 
   const handlePrint = () => {
-    onPrintCommissionStatement('Usuário Logado', filteredSales, summary);
+    onPrintCommissionStatement(filteredSales, summary);
   };
 
   return (

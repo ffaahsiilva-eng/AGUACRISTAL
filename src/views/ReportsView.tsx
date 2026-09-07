@@ -60,16 +60,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
 
   // Report 2: Driver Performance
   const driverReport = useMemo(() => {
-    const map: Record<string, { driver: string; count: number; quantity: number; total: number; commission: number }> = {};
+    const map: Record<string, { driver: string; count: number; quantity: number; total: number }> = {};
     filteredSales.forEach((s) => {
       const d = s.driver_name || 'A definir';
       if (!map[d]) {
-        map[d] = { driver: d, count: 0, quantity: 0, total: 0, commission: 0 };
+        map[d] = { driver: d, count: 0, quantity: 0, total: 0 };
       }
       map[d].count += 1;
       map[d].quantity += s.quantity;
       map[d].total += s.total_amount;
-      map[d].commission += s.commission_amount;
+      
     });
     return Object.values(map).sort((a, b) => b.total - a.total);
   }, [filteredSales]);
@@ -143,7 +143,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
           'Nº Pedidos': r.count,
           'Galões Entregues': r.quantity,
           'Faturamento Vendas': r.total,
-          'Comissão Total': r.commission,
+          
         })),
         `Relatorio_Desempenho_Motoristas_${startDate}_${endDate}`
       );
@@ -202,12 +202,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
         { header: 'Pedidos', key: 'count', align: 'center' },
         { header: 'Galões', key: 'quantity', align: 'center' },
         { header: 'Total Vendas', key: 'totalFormatted', align: 'right' },
-        { header: 'Comissão', key: 'commFormatted', align: 'right' },
+        
       ];
       rows = driverReport.map((r) => ({
         ...r,
         totalFormatted: formatCurrency(r.total),
-        commFormatted: formatCurrency(r.commission),
+        
       }));
     } else if (reportType === 'city_ranking') {
       title = 'Relatório de Vendas por Cidade / Região';
@@ -312,7 +312,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
         >
           <Truck className={`w-5 h-5 mb-1.5 ${reportType === 'driver_performance' ? 'text-indigo-600' : 'text-slate-400'}`} />
           <span className="text-xs font-bold text-slate-900 block">Por Motorista</span>
-          <span className="text-[11px] text-slate-500">Volume e comissões</span>
+          <span className="text-[11px] text-slate-500">Volume de Vendas</span>
         </button>
 
         <button
@@ -431,7 +431,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
                   <th className="py-3 px-4 text-center">Entregas / Pedidos</th>
                   <th className="py-3 px-4 text-center">Galões Entregues</th>
                   <th className="py-3 px-4 text-right">Volume Total Vendido</th>
-                  <th className="py-3 px-4 text-right">Comissão Calculada</th>
+                  
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -443,9 +443,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
                     <td className="py-3 px-4 text-right font-semibold text-slate-900">
                       {formatCurrency(r.total)}
                     </td>
-                    <td className="py-3 px-4 text-right font-black text-indigo-700">
-                      {formatCurrency(r.commission)}
-                    </td>
+                    
                   </tr>
                 ))}
               </tbody>
