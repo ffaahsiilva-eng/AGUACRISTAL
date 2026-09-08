@@ -69,7 +69,36 @@ export function App() {
     return () => unsubscribe();
   }, []);
 
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTabState] = useState<string>(() => {
+    const path = window.location.pathname;
+    if (path.startsWith('/app/')) return path.replace('/app/', '');
+    return 'overview';
+  });
+
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    const newPath = '/app/' + tab;
+    if (window.location.pathname !== newPath) {
+      window.history.pushState(null, '', newPath);
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/app/')) {
+        setActiveTabState(path.replace('/app/', ''));
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+  
+  useEffect(() => {
+    if (currentUser && !window.location.pathname.startsWith('/app/')) {
+      window.history.replaceState(null, '', '/app/overview');
+    }
+  }, [currentUser]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
 
@@ -390,7 +419,22 @@ export function App() {
   // Role Permissions
   const isVisualizer = currentUser?.role === 'VISUALIZACAO';
 
-  const handleNavigateTab = (tab: string) => {
+  const handleNavigateTab = (rawTab: string) => {
+    const tabMap: Record<string, string> = {
+      'dashboard': 'overview',
+      'vendas': 'sales',
+      'entregas': 'deliveries',
+      'clientes': 'customers',
+      'motoristas': 'drivers',
+      'despesas': 'expenses',
+      'contas-receber': 'receivables',
+      'financeiro': 'finance',
+      'comissoes': 'commissions',
+      'relatorios': 'reports',
+      'fechamento-mensal': 'monthly-closing',
+      'configuracoes': 'settings'
+    };
+    const tab = tabMap[rawTab] || rawTab;
     if (isVisualizer && (tab === 'settings' || tab === 'configuracoes')) {
       alert('Acesso restrito: o perfil de Visualização não possui acesso às Configurações do sistema.');
       return;
@@ -474,7 +518,7 @@ export function App() {
         {/* Scrollable View Area */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto pb-12">
-            {activeTab === 'dashboard' && (
+            {activeTab === 'overview' && (
               <DashboardView
                 onNavigate={handleNavigateTab}
                 onOpenNewSale={() => handlePermittedNewSale()}
@@ -483,7 +527,7 @@ export function App() {
               />
             )}
 
-            {(activeTab === 'sales' || activeTab === 'vendas') && (
+            {(activeTab === 'sales') && (
               <SalesView
                 onOpenNewSale={() => handleOpenNewSale()}
                 onOpenQuickSale={() => setIsQuickSaleModalOpen(true)}
@@ -494,7 +538,7 @@ export function App() {
               />
             )}
 
-            {(activeTab === 'deliveries' || activeTab === 'entregas') && (
+            {(activeTab === 'deliveries') && (
               <DeliveriesView
                 onOpenDeliveryModal={handleOpenDeliveryModal}
                 onPrintRoute={handlePrintDeliveryRoute}
@@ -502,14 +546,14 @@ export function App() {
               />
             )}
 
-            {(activeTab === 'receivables' || activeTab === 'contas-receber') && (
+            {(activeTab === 'receivables') && (
               <ReceivablesView
                 onOpenReceivePaymentModal={handleOpenReceivePayment}
                 onPrintReceivablesReport={handlePrintReceivablesReport}
               />
             )}
 
-            {(activeTab === 'expenses' || activeTab === 'despesas') && (
+            {(activeTab === 'expenses') && (
               <ExpensesView
                 onOpenNewExpense={handleOpenNewExpense}
                 onEditExpense={handleEditExpense}
@@ -517,7 +561,7 @@ export function App() {
               />
             )}
 
-            {(activeTab === 'drivers' || activeTab === 'motoristas') && (
+            {(activeTab === 'drivers') && (
               <DriversView
                 onSelectDriverHistory={(d) => {
                   setActiveTab('comissoes');
@@ -525,7 +569,7 @@ export function App() {
               />
             )}
 
-            {(activeTab === 'clients' || activeTab === 'clientes') && (
+            {(activeTab === 'customers') && (
               <ClientsView
                 onNewSaleForClient={(c) => {
                   handleOpenNewSale(c);
@@ -534,7 +578,7 @@ export function App() {
               />
             )}
 
-            {(activeTab === 'commissions' || activeTab === 'comissoes') && (
+            {(activeTab === 'commissions') && (
               <CommissionsView
                 onPrintCommissionStatement={handlePrintCommissionStatement}
               />
@@ -546,7 +590,7 @@ export function App() {
               />
             )}
 
-            {(activeTab === 'reports' || activeTab === 'relatorios') && (
+            {(activeTab === 'reports') && (
               <ReportsView
                 onOpenPrintModal={(cfg) => {
                   setPrintConfig(cfg);
@@ -555,7 +599,7 @@ export function App() {
               />
             )}
 
-            {(activeTab === 'settings' || activeTab === 'configuracoes') && <SettingsView />}
+            {(activeTab === 'settings') && <SettingsView />}
           </div>
         </main>
       </div>

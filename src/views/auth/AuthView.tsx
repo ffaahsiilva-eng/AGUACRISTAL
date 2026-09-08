@@ -35,7 +35,42 @@ export const AuthView: React.FC<AuthViewProps> = ({
   onLoginSuccess,
   initialExpiredNotice = false,
 }) => {
-  const [screen, setScreen] = useState<AuthScreen>('login');
+  const [screen, setScreenState] = useState<AuthScreen>(() => {
+    const path = window.location.pathname;
+    if (path === '/auth/register') return 'register';
+    if (path === '/auth/recovery') return 'recovery';
+    return 'login';
+  });
+
+  const setScreen = (newScreen: AuthScreen) => {
+    setScreenState(newScreen);
+    const paths = {
+      'login': '/auth/sign-in',
+      'register': '/auth/register',
+      'forgot_password': '/auth/recovery',
+      'reset_password': '/auth/reset' // if it exists
+    };
+    const newPath = paths[newScreen] || '/auth/sign-in';
+    if (window.location.pathname !== newPath) {
+      window.history.pushState(null, '', newPath);
+    }
+  };
+
+  useEffect(() => {
+    if (!window.location.pathname.startsWith('/auth/')) {
+      window.history.replaceState(null, '', '/auth/sign-in');
+    }
+    
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path === '/auth/register') setScreenState('register');
+      else if (path === '/auth/recovery') setScreenState('forgot_password');
+      else if (path === '/auth/reset') setScreenState('reset_password');
+      else setScreenState('login');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Form States - Login
   const [loginEmail, setLoginEmail] = useState('');
@@ -347,7 +382,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         {/* Top Header Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Logo" className="w-20 h-20 object-contain brightness-0 invert scale-125 origin-left" />
+            <img src="/logo.png" alt="Logo" className="w-64 sm:w-80 md:w-96 lg:w-[450px] h-auto max-h-48 object-contain brightness-0 invert origin-left" />
             
           </div>
         </div>
@@ -401,7 +436,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
         <div className="w-full max-w-md">
           {/* Mobile Logo Header (Shown on phone only: < md) */}
           <div className="md:hidden flex items-center gap-3 mb-5 pb-3 border-b border-slate-200">
-            <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain scale-125 origin-left" />
+            <img src="/logo.png" alt="Logo" className="w-40 sm:w-48 h-auto max-h-24 object-contain origin-left" />
             
           </div>
           {/* ======================================================== */}

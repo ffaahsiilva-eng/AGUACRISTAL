@@ -1,9 +1,65 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Basic authentication requirement for all collections
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'ADMINISTRADOR';
+    }
+    
+    function isOperator() {
+      return isAuthenticated() && getUserData().role == 'OPERADOR';
+    }
+    
+    function isViewer() {
+      return isAuthenticated() && getUserData().role == 'VISUALIZACAO';
+    }
+    
+    function hasWriteAccess() {
+      return isAdmin() || isOperator();
+    }
+    
+    function hasReadAccess() {
+      return isAuthenticated();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])));
+      allow delete: if isAdmin();
+    }
+    
+    match /settings/{docId} {
+      allow read: if hasReadAccess();
+      allow write: if isAdmin();
+    }
+    
+    match /audit_logs/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+    
+    match /clients/{docId} { allow read: if hasReadAccess(); allow write: if hasWriteAccess(); }
+    match /drivers/{docId} { allow read: if hasReadAccess(); allow write: if hasWriteAccess(); }
+    match /vehicles/{docId} { allow read: if hasReadAccess(); allow write: if hasWriteAccess(); }
+    match /sales/{docId} { allow read: if hasReadAccess(); allow write: if hasWriteAccess(); }
+    match /deliveries/{docId} { allow read: if hasReadAccess(); allow write: if hasWriteAccess(); }
+    match /expenses/{docId} { allow read: if hasReadAccess(); allow write: if hasWriteAccess(); }
+    match /categories/{docId} { allow read: if hasReadAccess(); allow write: if hasWriteAccess(); }
+    match /payments/{docId} { allow read: if hasReadAccess(); allow write: if hasWriteAccess(); }
+
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read: if false;
+      allow write: if false;
     }
   }
 }

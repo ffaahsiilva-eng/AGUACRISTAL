@@ -52,34 +52,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const currentUser = storage.getCurrentUser();
 
-  const isTabActive = (id: string) => {
-    if (activeTab === id) return true;
-    if (id === 'vendas' && (activeTab === 'sales' || activeTab === 'vendas')) return true;
-    if (id === 'entregas' && (activeTab === 'deliveries' || activeTab === 'entregas')) return true;
-    if (id === 'clientes' && (activeTab === 'clients' || activeTab === 'clientes')) return true;
-    if (id === 'motoristas' && (activeTab === 'drivers' || activeTab === 'motoristas')) return true;
-    if (id === 'despesas' && (activeTab === 'expenses' || activeTab === 'despesas')) return true;
-    if (id === 'contas-receber' && (activeTab === 'receivables' || activeTab === 'contas-receber')) return true;
-    if (id === 'financeiro' && (activeTab === 'financial_closing' || activeTab === 'financeiro' || activeTab === 'fechamento-mensal')) return true;
-    if (id === 'fechamento-mensal' && (activeTab === 'financial_closing' || activeTab === 'financeiro' || activeTab === 'fechamento-mensal')) return true;
-    if (id === 'comissoes' && (activeTab === 'commissions' || activeTab === 'comissoes')) return true;
-    if (id === 'relatorios' && (activeTab === 'reports' || activeTab === 'relatorios')) return true;
-    if (id === 'configuracoes' && (activeTab === 'settings' || activeTab === 'configuracoes')) return true;
-    return false;
-  };
+  const isTabActive = (id: string) => activeTab === id;
 
   const menuItems = [
-    { id: 'dashboard' as ActiveTab, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'vendas' as ActiveTab, label: 'Vendas', icon: ShoppingCart },
-    { id: 'entregas' as ActiveTab, label: 'Entregas', icon: Truck, badge: pendingDeliveriesCount },
-    { id: 'clientes' as ActiveTab, label: 'Clientes', icon: Users },
-    { id: 'motoristas' as ActiveTab, label: 'Motoristas', icon: UserCheck },
-    { id: 'despesas' as ActiveTab, label: 'Despesas', icon: TrendingDown },
-    { id: 'financeiro' as ActiveTab, label: 'Financeiro', icon: DollarSign },
-    { id: 'comissoes' as ActiveTab, label: 'Minhas Comissões', icon: Percent },
-    { id: 'relatorios' as ActiveTab, label: 'Relatórios', icon: FileBarChart },
-    { id: 'fechamento-mensal' as ActiveTab, label: 'Fechamento Mensal', icon: CalendarCheck2 },
-    { id: 'configuracoes' as ActiveTab, label: 'Configurações', icon: Settings },
+    { id: 'overview' as ActiveTab, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'sales' as ActiveTab, label: 'Vendas', icon: ShoppingCart },
+    { id: 'deliveries' as ActiveTab, label: 'Entregas', icon: Truck, badge: pendingDeliveriesCount },
+    { id: 'customers' as ActiveTab, label: 'Clientes', icon: Users },
+    { id: 'drivers' as ActiveTab, label: 'Motoristas', icon: UserCheck },
+    { id: 'expenses' as ActiveTab, label: 'Despesas', icon: TrendingDown },
+    { id: 'finance' as ActiveTab, label: 'Financeiro', icon: DollarSign },
+    { id: 'commissions' as ActiveTab, label: 'Minhas Comissões', icon: Percent },
+    { id: 'reports' as ActiveTab, label: 'Relatórios', icon: FileBarChart },
+    { id: 'monthly-closing' as ActiveTab, label: 'Fechamento Mensal', icon: CalendarCheck2 },
+    { id: 'settings' as ActiveTab, label: 'Configurações', icon: Settings },
   ];
 
   const getRoleBadge = (role: UserRole) => {
