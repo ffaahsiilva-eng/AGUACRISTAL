@@ -14,6 +14,7 @@ import {
   PrintReportView,
   ConfirmModal,
   GlobalSearchModal,
+  AiChatModal,
 } from './components';
 import {
   DashboardView,
@@ -104,6 +105,7 @@ export function App() {
 
   // Modals state
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
 
@@ -412,6 +414,19 @@ export function App() {
     setActiveTab('overview');
   };
 
+  // AI Context preparation
+  const getAiContextData = () => {
+    const sales = storage.getSales();
+    const clients = storage.getClients();
+    const expenses = storage.getExpenses();
+    return {
+      sales: sales.slice(0, 150),
+      clients: clients.slice(0, 100),
+      expenses: expenses.slice(0, 100),
+      todayTotal: todaySalesTotal
+    };
+  };
+
   const handleLogout = () => {
     authService.logout();
   };
@@ -507,6 +522,7 @@ export function App() {
         <Header
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onOpenGlobalSearch={() => setIsSearchModalOpen(true)}
+          onOpenAiChat={() => setIsAiChatOpen(true)}
           onOpenQuickSale={() => handlePermittedQuickSale()}
           onOpenNewSale={() => handlePermittedNewSale()}
           todaySalesTotal={todaySalesTotal}
@@ -605,6 +621,14 @@ export function App() {
       </div>
 
       {/* Modals & Dialogs */}
+      {isAiChatOpen && (
+        <AiChatModal
+          isOpen={isAiChatOpen}
+          onClose={() => setIsAiChatOpen(false)}
+          contextData={getAiContextData()}
+        />
+      )}
+
       {isSearchModalOpen && (
         <GlobalSearchModal
           isOpen={isSearchModalOpen}

@@ -19,6 +19,7 @@ import {
   Printer,
   Award,
 } from 'lucide-react';
+import { AiInsightsPanel } from '../components/AiInsightsPanel';
 import { storage } from '../services/storage';
 import { Sale, Expense, Delivery, PaymentMethod, PaymentStatus } from '../types';
 import {

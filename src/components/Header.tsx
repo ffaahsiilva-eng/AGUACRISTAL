@@ -11,6 +11,7 @@ import {
   Eye,
   CheckCircle2,
   Settings,
+  Sparkles,
   LogOut,
   User as UserIcon,
 } from 'lucide-react';
@@ -19,6 +20,7 @@ import { storage } from '../services/storage';
 import { UserProfileModal } from './UserProfileModal';
 
 interface HeaderProps {
+  onOpenAiChat: () => void;
   onOpenGlobalSearch: () => void;
   onOpenNewSale: () => void;
   onOpenQuickSale: () => void;
@@ -30,6 +32,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  onOpenAiChat,
   onOpenGlobalSearch,
   onOpenNewSale,
   onOpenQuickSale,
@@ -141,6 +144,15 @@ export const Header: React.FC<HeaderProps> = ({
               </kbd>
             </button>
           </div>
+          
+          <button
+            onClick={onOpenAiChat}
+            className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-indigo-50 to-sky-50 text-indigo-700 rounded-xl hover:from-indigo-100 hover:to-sky-100 transition-colors border border-indigo-200/50 shadow-sm shrink-0 font-medium"
+            title="Chat IA"
+          >
+            <Sparkles className="w-4 h-4 text-indigo-500" />
+            <span className="hidden lg:inline text-xs font-bold tracking-wide">Assistente</span>
+          </button>
 
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-1.5 shrink-0">

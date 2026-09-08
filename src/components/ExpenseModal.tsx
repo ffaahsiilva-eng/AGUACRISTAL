@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, TrendingDown, Fuel, Check, Calculator, Upload } from 'lucide-react';
+import { X, TrendingDown, Fuel, Check, Calculator, Upload, Sparkles, Loader2 } from 'lucide-react';
 import { Expense, PaymentMethod } from '../types';
 import { storage } from '../services/storage';
 import { formatCurrency, getTodayDateString } from '../utils/formatters';
@@ -37,6 +37,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [supplier, setSupplier] = useState('');
   const [docNumber, setDocNumber] = useState('');
   const [receiptAttachment, setReceiptAttachment] = useState<string | undefined>(undefined);
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [observation, setObservation] = useState('');
 
   // Fuel specific fields
