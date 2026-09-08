@@ -409,7 +409,7 @@ export function App() {
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
     setSessionExpiredNotice(false);
-    setActiveTab('dashboard');
+    setActiveTab('overview');
   };
 
   const handleLogout = () => {
@@ -584,7 +584,7 @@ export function App() {
               />
             )}
 
-            {(activeTab === 'financial_closing' || activeTab === 'fechamento-mensal' || activeTab === 'financeiro') && (
+            {(activeTab === 'monthly-closing' || activeTab === 'finance') && (
               <FinancialClosingView
                 onPrintClosingReport={handlePrintClosingReport}
               />
