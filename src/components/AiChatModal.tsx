@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Sparkles, User, Loader2 } from 'lucide-react';
+import { X, Send, Sparkles, User, Loader2, Trash2 } from 'lucide-react';
 
 interface AiChatModalProps {
   isOpen: boolean;
@@ -12,13 +12,23 @@ interface Message {
   content: string;
 }
 
+const INITIAL_MESSAGE: Message = { 
+  role: 'assistant', 
+  content: 'Olá! Sou a IA Assistente da Água Cristal Sul. Posso analisar seus clientes, vendas e faturamento. Como posso ajudar hoje?' 
+};
+
 export const AiChatModal: React.FC<AiChatModalProps> = ({ isOpen, onClose, contextData }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: 'Olá! Sou a IA Assistente da Água Cristal Sul. Posso analisar seus clientes, vendas e faturamento. Como posso ajudar hoje?' }
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const saved = localStorage.getItem('gestao-agua-cristal-chat');
+    return saved ? JSON.parse(saved) : [INITIAL_MESSAGE];
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem('gestao-agua-cristal-chat', JSON.stringify(messages));
+  }, [messages]);
 
   useEffect(() => {
     if (isOpen) {
@@ -27,6 +37,12 @@ export const AiChatModal: React.FC<AiChatModalProps> = ({ isOpen, onClose, conte
   }, [messages, isOpen]);
 
   if (!isOpen) return null;
+
+  const handleClearChat = () => {
+    if (window.confirm('Deseja realmente apagar o histórico de mensagens?')) {
+      setMessages([INITIAL_MESSAGE]);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -69,9 +85,18 @@ export const AiChatModal: React.FC<AiChatModalProps> = ({ isOpen, onClose, conte
               <p className="text-xs text-slate-500">Água Cristal Sul</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded-full transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleClearChat}
+              title="Apagar conversa"
+              className="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded-full transition-colors"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-white rounded-full transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Chat Area */}
