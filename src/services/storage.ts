@@ -335,8 +335,11 @@ class StorageService {
   }
 
   public async saveClient(client: Client): Promise<Client> {
+    const clients = this.getClients();
     const currentUser = this.getCurrentUser();
     const now = new Date().toISOString();
+    
+    const isNew = !clients.some(c => c.id === client.id);
     
     if (!client.created_at) {
       client.created_at = now;
@@ -344,8 +347,18 @@ class StorageService {
     }
     client.updated_at = now;
     
+    if (isNew) {
+      clients.unshift(client);
+    } else {
+      const index = clients.findIndex(c => c.id === client.id);
+      clients[index] = client;
+    }
+    
+    setItem(STORAGE_KEYS.CLIENTS, clients);
+    notifyStorageChange();
+    
     await setDoc(doc(db, 'clients', client.id), client);
-    this.logAudit(client.created_at === now ? 'Criação' : 'Alteração', 'Cliente', client.id, `Cliente ${client.name} salvo via Firestore`);
+    this.logAudit(isNew ? 'Criação' : 'Alteração', 'Cliente', client.id, `Cliente ${client.name} salvo via Firestore`);
     return client;
   }
 
@@ -488,15 +501,28 @@ class StorageService {
   }
 
   public async saveDriver(driver: Driver): Promise<Driver> {
+    const drivers = this.getDrivers();
     const now = new Date().toISOString();
+    
+    const isNew = !drivers.some(d => d.id === driver.id);
     
     if (!driver.created_at) {
       driver.created_at = now;
     }
     driver.updated_at = now;
     
+    if (isNew) {
+      drivers.unshift(driver);
+    } else {
+      const index = drivers.findIndex(d => d.id === driver.id);
+      drivers[index] = driver;
+    }
+    
+    setItem(STORAGE_KEYS.DRIVERS, drivers);
+    notifyStorageChange();
+    
     await setDoc(doc(db, 'drivers', driver.id), driver);
-    this.logAudit(driver.created_at === now ? 'Criação' : 'Alteração', 'Motorista', driver.id, `Motorista ${driver.name} salvo via Firestore`);
+    this.logAudit(isNew ? 'Criação' : 'Alteração', 'Motorista', driver.id, `Motorista ${driver.name} salvo via Firestore`);
     return driver;
   }
 

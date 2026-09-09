@@ -45,6 +45,17 @@ export const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({
   onCancelSale,
   onPrintReceipt,
 }) => {
+  
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !sale) return null;
 
   const currentUser = storage.getCurrentUser();
@@ -331,7 +342,7 @@ export const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center py-0.5 border-b border-slate-50">
-                  <span className="text-slate-500">Galões de Água 20L:</span>
+                  <span className="text-slate-500">Unidades de Água 20L:</span>
                   <span className="font-bold text-slate-900">{sale.quantity} unidades</span>
                 </div>
                 <div className="flex justify-between items-center py-0.5 border-b border-slate-50">

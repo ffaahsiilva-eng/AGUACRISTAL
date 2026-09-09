@@ -103,7 +103,7 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
         { Linha: '(-) Demais Despesas Operacionais', Valor: -otherExpenses },
         { Linha: '(=) RESULTADO LÍQUIDO DO MÊS', Valor: netResult },
         { Linha: 'Margem Líquida (%)', Valor: `${profitMargin.toFixed(1)}%` },
-        { Linha: 'Total de Galões Vendidos', Valor: totalQuantity },
+        { Linha: 'Total de Unidades Vendidas', Valor: totalQuantity },
       ],
       `Fechamento_Mensal_DRE_${selectedMonth}`
     );
@@ -201,7 +201,7 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
               <span className="text-sm font-bold block">{formatCurrency(totalDeductions)}</span>
             </div>
             <div>
-              <span className="opacity-75 block text-[11px]">Galões Vendidos</span>
+              <span className="opacity-75 block text-[11px]">Unidades Vendidas</span>
               <span className="text-sm font-bold block">{formatNumber(totalQuantity)} un</span>
             </div>
           </div>
@@ -227,7 +227,7 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
                   1. RECEITA BRUTA DE VENDAS
                 </span>
                 <span className="text-slate-500 text-[11px]">
-                  {monthSales.length} pedidos • {totalQuantity} galões comercializados
+                  {monthSales.length} pedidos • {totalQuantity} unidades comercializadas
                 </span>
               </div>
               <span className="font-black text-sky-900 text-base">

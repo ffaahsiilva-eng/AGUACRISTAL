@@ -3,6 +3,7 @@ import { X, ShoppingCart, Calculator, Check, Truck, AlertCircle } from 'lucide-r
 import { Sale, Client, Driver, Vehicle, PaymentMethod, PaymentStatus, SaleStatus } from '../types';
 import { storage } from '../services/storage';
 import { formatCurrency, getTodayDateString, formatCpfCnpj, formatPhone } from '../utils/formatters';
+import { formatCurrencyInput, parseCurrencyInput, formatInitialCurrency } from '../utils/currencyInput';
 
 interface SaleModalProps {
   isOpen: boolean;
@@ -41,7 +42,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
   const [saleStatus, setSaleStatus] = useState<SaleStatus>('Confirmada');
 
   const [quantity, setQuantity] = useState<number | string>(50);
-  const [unitPrice, setUnitPrice] = useState<number | string>(settings.default_unit_price || 27.5);
+  const [unitPrice, setUnitPrice] = useState<string>(formatInitialCurrency(settings.default_unit_price || 27.5));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PIX');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('Pago');
   const [dueDate, setDueDate] = useState(getTodayDateString());
@@ -72,7 +73,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
       setVehicleName(saleToEdit.vehicle_name || '');
       setSaleStatus(saleToEdit.sale_status || 'Confirmada');
       setQuantity(saleToEdit.quantity);
-      setUnitPrice(saleToEdit.unit_price);
+      setUnitPrice(formatInitialCurrency(saleToEdit.unit_price));
       setPaymentMethod(saleToEdit.payment_method);
       setPaymentStatus(saleToEdit.payment_status);
       setDueDate(saleToEdit.due_date || saleToEdit.sale_date);
@@ -100,7 +101,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
       setVehicleName(firstVehicle ? `${firstVehicle.model} (${firstVehicle.plate})` : '');
       setSaleStatus('Confirmada');
       setQuantity(50);
-      setUnitPrice(settings.default_unit_price || 27.5);
+      setUnitPrice(formatInitialCurrency(settings.default_unit_price || 27.5));
       setPaymentMethod('PIX');
       setPaymentStatus('Pago');
       setDueDate(getTodayDateString());
@@ -130,7 +131,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
 
       // Auto-fill commercial and driver preferences if configured
       if (client.valor_unitario_padrao !== undefined && client.valor_unitario_padrao > 0) {
-        setUnitPrice(client.valor_unitario_padrao);
+        setUnitPrice(formatInitialCurrency(client.valor_unitario_padrao));
       }
       if (client.forma_pagamento_preferencial) {
         setPaymentMethod(client.forma_pagamento_preferencial);
@@ -157,7 +158,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
 
   // Automatic calculations
   const numQuantity = Math.max(0, Number(quantity) || 0);
-  const numUnitPrice = Math.max(0, Number(unitPrice) || 0);
+  const numUnitPrice = Math.max(0, parseCurrencyInput(unitPrice));
   const totalAmount = Math.round(numQuantity * numUnitPrice * 100) / 100;
   const numCommissionRate = Number(commissionRate) || 0;
   const commissionAmount = Math.round(totalAmount * (numCommissionRate / 100) * 100) / 100;
@@ -229,6 +230,17 @@ export const SaleModal: React.FC<SaleModalProps> = ({
     onSaved(saved);
     onClose();
   };
+
+  
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -491,11 +503,9 @@ export const SaleModal: React.FC<SaleModalProps> = ({
                   Valor Unitário (R$) *
                 </label>
                 <input
-                  type="number"
-                  min="0.01"
-                  step="0.05"
+                  type="text"
                   value={unitPrice}
-                  onChange={(e) => setUnitPrice(e.target.value)}
+                  onChange={(e) => setUnitPrice(formatCurrencyInput(e.target.value))}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-hidden"
                   required
                 />

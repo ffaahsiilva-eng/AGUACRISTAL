@@ -31,6 +31,17 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     }
   }, [sale]);
 
+  
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !sale) return null;
 
   const numAmount = Number(amount) || 0;

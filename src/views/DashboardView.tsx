@@ -413,11 +413,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Card 2: Quantidade Vendida (Galões) */}
+        {/* Card 2: Quantidade Vendida (Unidades) */}
         <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Galões / Unidades
+              Unidades
             </span>
             <div className="p-2 rounded-xl bg-blue-100 text-blue-700">
               <Droplets className="w-4 h-4" />
@@ -449,27 +449,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        {/* Card 4: Contas a Receber (Pendente) */}
-        <div
-          onClick={onNavigateToReceivables}
-          className="p-4 bg-white rounded-2xl border border-amber-200 shadow-xs hover:bg-amber-50/40 cursor-pointer transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
-              A Receber (Pendente)
-            </span>
-            <div className="p-2 rounded-xl bg-amber-100 text-amber-800">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-xl font-black text-amber-800 mt-2">
-            {formatCurrency(totalReceivable)}
-          </p>
-          <p className="mt-2 text-xs text-amber-700 font-bold underline">
-            Ver Contas a Receber →
-          </p>
-        </div>
-
         {/* Card 5: Despesas Operacionais */}
         <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-rose-300 transition-colors">
           <div className="flex items-center justify-between">
@@ -485,24 +464,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
           <p className="mt-2 text-xs text-slate-500">
             {filteredExpenses.length} lançamentos de custos
-          </p>
-        </div>
-
-        {/* Card 6: Lucro Líquido Estimado */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Resultado Líquido
-            </span>
-            <div className={`p-2 rounded-xl ${netProfit >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-              <TrendingUp className="w-4 h-4" />
-            </div>
-          </div>
-          <p className={`text-xl font-black mt-2 ${netProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>
-            {formatCurrency(netProfit)}
-          </p>
-          <p className="mt-2 text-xs text-slate-500">
-            Margem Líquida: {totalPeriodSales > 0 ? `${((netProfit / totalPeriodSales) * 100).toFixed(1)}%` : '0%'}
           </p>
         </div>
 

@@ -3,6 +3,7 @@ import { X, Zap, Plus, Check, Calculator, Sparkles } from 'lucide-react';
 import { Sale, PaymentMethod } from '../types';
 import { storage } from '../services/storage';
 import { formatCurrency, getTodayDateString } from '../utils/formatters';
+import { formatCurrencyInput, parseCurrencyInput, formatInitialCurrency } from '../utils/currencyInput';
 
 interface QuickSaleModalProps {
   isOpen: boolean;
@@ -26,7 +27,7 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
   const [driverId, setDriverId] = useState('');
   const [driverName, setDriverName] = useState('');
   const [quantity, setQuantity] = useState<number | string>('');
-  const [unitPrice, setUnitPrice] = useState<number | string>('');
+  const [unitPrice, setUnitPrice] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [countSaved, setCountSaved] = useState(0);
   const [recentSavedName, setRecentSavedName] = useState('');
@@ -72,7 +73,7 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
         setDriverName(d ? d.name : (cl.motorista_preferencial_nome || ''));
       }
       if (cl.valor_unitario_padrao && cl.valor_unitario_padrao > 0) {
-        setUnitPrice(cl.valor_unitario_padrao);
+        setUnitPrice(formatInitialCurrency(cl.valor_unitario_padrao));
       }
       if (cl.forma_pagamento_preferencial) {
         setPaymentMethod(cl.forma_pagamento_preferencial);
@@ -81,7 +82,7 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
   };
 
   const numQuantity = Math.max(0, Number(quantity) || 0);
-  const numUnitPrice = Math.max(0, Number(unitPrice) || 0);
+  const numUnitPrice = Math.max(0, parseCurrencyInput(unitPrice));
   const totalAmount = Math.round(numQuantity * numUnitPrice * 100) / 100;
 
   const saveCurrent = async () => {
@@ -156,6 +157,17 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
       onClose();
     }
   };
+
+  
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -306,11 +318,9 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({
                 Valor Unitário (R$) *
               </label>
               <input
-                type="number"
-                min="0.01"
-                step="0.10"
+                type="text"
                 value={unitPrice}
-                onChange={(e) => setUnitPrice(e.target.value)}
+                onChange={(e) => setUnitPrice(formatCurrencyInput(e.target.value))}
                 className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 font-bold"
                 required
               />

@@ -448,7 +448,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           <span className="text-lg font-black text-slate-900 block mt-1">
             {dashboardMetrics.totalVolumePurchased.toLocaleString('pt-BR')} un
           </span>
-          <span className="text-[11px] text-slate-500 block mt-0.5">galões de 20 litros</span>
+          <span className="text-[11px] text-slate-500 block mt-0.5">unidades</span>
         </div>
 
         {/* Faturamento Acumulado */}

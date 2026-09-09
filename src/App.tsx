@@ -233,7 +233,7 @@ export function App() {
       summaryCards: [
         { label: 'Total Entregas', value: `${deliveriesToPrint.length}` },
         {
-          label: 'Total Galões',
+          label: 'Total Unidades',
           value: `${deliveriesToPrint.reduce((a, b) => a + b.quantity, 0)} un`,
         },
       ],
@@ -243,7 +243,7 @@ export function App() {
         { header: 'Endereço Completo', key: 'address' },
         { header: 'Cidade', key: 'city' },
         { header: 'Motorista', key: 'driver_name' },
-        { header: 'Galões', key: 'quantity', align: 'center' },
+        { header: 'Unidades', key: 'quantity', align: 'center' },
         { header: 'Status', key: 'status', align: 'center' },
       ],
       rows: deliveriesToPrint,
@@ -321,7 +321,7 @@ export function App() {
       periodText: `Emissão para conferência e assinatura de pagamento de comissão`,
       summaryCards: [
         { label: 'Total Comissão a Pagar', value: formatCurrency(totals.totalCommission) },
-        { label: 'Galões Entregues', value: `${totals.gallonsCount} un` },
+        { label: 'Unidades Entregues', value: `${totals.gallonsCount} un` },
         { label: 'Volume em Vendas', value: formatCurrency(totals.totalSalesAmount) },
         { label: 'Taxa Aplicada', value: `${totals.defaultRate}%` },
       ],
@@ -329,7 +329,7 @@ export function App() {
         { header: 'Data', key: 'dateFormatted' },
         { header: 'Venda', key: 'code' },
         { header: 'Cliente', key: 'client_name' },
-        { header: 'Galões', key: 'quantity', align: 'center' },
+        { header: 'Unidades', key: 'quantity', align: 'center' },
         { header: 'Valor Venda', key: 'saleFormatted', align: 'right' },
         { header: 'Comissão', key: 'commFormatted', align: 'right' },
       ],

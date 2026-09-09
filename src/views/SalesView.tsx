@@ -239,7 +239,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
     .filter((s) => s.sale_date && s.sale_date.startsWith(currentMonthPrefix))
     .reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
 
-  // 3. Quantidade Vendida: soma da quantidade de galões/produtos vendidos no conjunto filtrado
+  // 3. Quantidade Vendida: soma da quantidade de unidades/produtos vendidos no conjunto filtrado
   const quantidadeVendidaTotal = filteredSales
     .filter((s) => s.sale_status !== 'Cancelada')
     .reduce((acc, curr) => acc + (curr.quantity || 0), 0);
@@ -1244,7 +1244,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
           },
           {
             label: 'Total de Unidades Entregues:',
-            value: `${formatNumber(quantidadeVendidaTotal)} galões`,
+            value: `${formatNumber(quantidadeVendidaTotal)} unidades`,
           },
         ]}
       />
