@@ -33,7 +33,7 @@ app.post('/api/ai/insights', async (req, res) => {
     Despesas: ${JSON.stringify(expenses?.slice(0, 50))}`;
 
     const response = await fetchWithTimeout(ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -76,7 +76,7 @@ app.post('/api/ai/chat', async (req, res) => {
     Pergunta do usuário: ${message}`;
 
     const response = await fetchWithTimeout(ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt
     }));
 
@@ -101,7 +101,7 @@ app.post('/api/ai/ocr', async (req, res) => {
     const prompt = `Analise este comprovante/recibo/nota fiscal. Extraia o valor total pago, a data e uma breve descrição do que se trata. Formate estritamente no JSON solicitado.`;
 
     const response = await fetchWithTimeout(ai.models.generateContent({
-      model: 'gemini-3.6-flash',
+      model: 'gemini-2.5-flash',
       contents: [
         {
           inlineData: {
