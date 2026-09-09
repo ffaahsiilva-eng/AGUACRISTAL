@@ -85,39 +85,39 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-xs">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between px-3 md:px-6 py-2 md:py-0 md:h-16 gap-2 md:gap-0">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between px-3 md:px-6 py-2 md:py-0 md:h-16 gap-2 md:gap-4">
         
         {/* Top Row on Mobile / Left on Desktop */}
-        <div className="flex items-center justify-between md:justify-start gap-3 w-full md:w-auto">
+        <div className="flex items-center justify-between md:justify-start gap-3 shrink-0">
           <div className="flex items-center gap-2">
             <button
               id="mobile-menu-toggle-btn"
               onClick={onToggleMobileMenu}
-              className="md:hidden p-1.5 -ml-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              className="md:hidden p-1.5 -ml-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 shrink-0"
             >
               <Menu className="w-6 h-6" />
             </button>
 
-            <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Logo" className="h-10 md:h-12 w-auto object-contain scale-125 origin-left" />
+            <div className="flex items-center gap-2 shrink-0">
+              <img src="/logo.png" alt="Logo" className="h-10 md:h-12 w-auto object-contain scale-125 origin-left shrink-0" />
               
-              <span className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                <Droplets className="w-3 h-3 text-sky-500 fill-sky-400" />
+              <span className="hidden xl:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200 shrink-0">
+                <Droplets className="w-3 h-3 text-sky-500 fill-sky-400 shrink-0" />
                 Distribuidora Oficial
               </span>
             </div>
-            <span className="text-xs text-slate-500 hidden md:block ml-2 border-l border-slate-200 pl-4">
+            <span className="text-xs text-slate-500 hidden 2xl:block ml-2 border-l border-slate-200 pl-4 shrink-0">
               Controle de Vendas, Entregas e Financeiro
             </span>
           </div>
 
           {/* Profile on mobile goes here in the top row */}
-          <div className="md:hidden relative">
+          <div className="md:hidden relative shrink-0">
             {/* User profile dropdown - mobile instance */}
             <button
               id="user-profile-menu-btn-mobile"
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="w-8 h-8 rounded-full bg-sky-100 border border-sky-200 flex items-center justify-center text-sky-700 font-bold text-xs"
+              className="w-8 h-8 rounded-full bg-sky-100 border border-sky-200 flex items-center justify-center text-sky-700 font-bold text-xs shrink-0"
             >
               {currentUser.name.charAt(0)}
             </button>
@@ -126,68 +126,61 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Second Row on Mobile / Center & Right on Desktop */}
-        <div className="flex items-center gap-2 w-full md:w-auto overflow-hidden">
+        <div className="flex flex-1 items-center justify-end gap-2 md:gap-3 w-full min-w-0">
           {/* Global Search Input */}
-          <div className="flex-1 md:w-64 lg:w-96">
+          <div className="flex-1 max-w-2xl min-w-0">
             <button
               id="global-search-trigger-btn"
               onClick={onOpenGlobalSearch}
               className="w-full flex items-center justify-between px-3 py-2 text-xs md:text-sm text-slate-400 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 rounded-xl transition-all shadow-2xs group cursor-pointer"
             >
-              <div className="flex items-center gap-2 truncate">
+              <div className="flex items-center gap-2 truncate min-w-0">
                 <Search className="w-4 h-4 shrink-0 text-slate-400 group-hover:text-slate-600" />
                 <span className="truncate hidden sm:inline">Pesquisar cliente, CNPJ, motorista, cidade...</span>
                 <span className="truncate sm:hidden">Pesquisar...</span>
               </div>
-              <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono bg-white border border-slate-300 rounded text-slate-500 shadow-2xs">
+              <kbd className="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono bg-white border border-slate-300 rounded text-slate-500 shadow-2xs shrink-0">
                 Ctrl+K
               </kbd>
             </button>
           </div>
           
-          <button
-            onClick={onOpenAiChat}
-            className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-indigo-50 to-sky-50 text-indigo-700 rounded-xl hover:from-indigo-100 hover:to-sky-100 transition-colors border border-indigo-200/50 shadow-sm shrink-0 font-medium"
-            title="Chat IA"
-          >
-            <Sparkles className="w-4 h-4 text-indigo-500" />
-            <span className="hidden lg:inline text-xs font-bold tracking-wide">Assistente</span>
-          </button>
+          {/* Botão de Assistente IA removido */}
 
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               id="header-quick-sale-btn"
               onClick={onOpenQuickSale}
-              className="inline-flex items-center justify-center h-[34px] w-[34px] sm:w-auto sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 active:scale-95 transition-all"
+              className="inline-flex items-center justify-center h-[34px] w-[34px] md:w-auto md:px-3 md:py-1.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 active:scale-95 transition-all shrink-0"
               title="Lançamento Rápido"
             >
-              <Zap className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-amber-600 fill-amber-500" />
-              <span className="hidden sm:inline ml-1.5">Lançamento Rápido</span>
+              <Zap className="w-4 h-4 md:w-3.5 md:h-3.5 text-amber-600 fill-amber-500 shrink-0" />
+              <span className="hidden lg:inline ml-1.5 whitespace-nowrap">Lançamento Rápido</span>
             </button>
 
             <button
               id="header-new-sale-btn"
               onClick={onOpenNewSale}
-              className="inline-flex items-center justify-center h-[34px] w-[34px] sm:w-auto sm:px-3 sm:py-1.5 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-500 shadow-xs active:scale-95 transition-all"
+              className="inline-flex items-center justify-center h-[34px] w-[34px] md:w-auto md:px-3 md:py-1.5 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-500 shadow-xs active:scale-95 transition-all shrink-0"
               title="Nova Venda"
             >
-              <Plus className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-              <span className="hidden sm:inline ml-1.5">Nova Venda</span>
+              <Plus className="w-4 h-4 md:w-3.5 md:h-3.5 shrink-0" />
+              <span className="hidden lg:inline ml-1.5 whitespace-nowrap">Nova Venda</span>
             </button>
 
             {/* User profile dropdown - desktop instance */}
-            <div className="relative hidden md:block">
+            <div className="relative hidden md:block shrink-0">
               <button
                 id="user-profile-menu-btn"
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-all"
               >
-                <div className="w-8 h-8 rounded-full bg-sky-100 border border-sky-200 flex items-center justify-center text-sky-700 font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-sky-100 border border-sky-200 flex items-center justify-center text-sky-700 font-bold text-xs shrink-0">
                   {currentUser.name.charAt(0)}
                 </div>
-                <div className="hidden lg:flex flex-col text-left mr-1">
-                  <span className="text-xs font-bold text-slate-800 leading-tight">
+                <div className="hidden xl:flex flex-col text-left mr-1">
+                  <span className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[100px]">
                     {currentUser.name}
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium leading-tight">

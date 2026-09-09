@@ -3,7 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type, Schema } from '@google/genai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
 const app = express();
 const PORT = 3000;
 
@@ -25,6 +25,14 @@ app.use(express.json({ limit: '10mb' }));
 
 app.post('/api/ai/insights', async (req, res) => {
   try {
+    const apiKey = process.env.GEMINI_API_KEY || '';
+    if (apiKey.startsWith('AQ.')) {
+      return res.status(401).json({ error: 'Você está usando uma chave inválida (AQ...). Vá nas Configurações (Secrets) e troque pela chave correta que começa com "AIza...".' });
+    }
+    if (!apiKey) {
+      return res.status(401).json({ error: 'Chave da API não encontrada. Adicione a variável GEMINI_API_KEY nas Configurações (Secrets).' });
+    }
+    const ai = new GoogleGenAI({ apiKey });
     const { clients, sales, expenses } = req.body;
     
     const prompt = `Você é um assistente proativo de negócio. Analise os seguintes dados e gere 3 avisos/insights curtos, diretos e úteis. Foque em anomalias, quedas de frequência de compra ou aumentos anormais de despesas. 
@@ -33,7 +41,7 @@ app.post('/api/ai/insights', async (req, res) => {
     Despesas: ${JSON.stringify(expenses?.slice(0, 50))}`;
 
     const response = await fetchWithTimeout(ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -57,6 +65,12 @@ app.post('/api/ai/insights', async (req, res) => {
     console.error('INSIGHTS ERROR:', error);
     let errorMsg = 'Erro ao gerar insights';
     const errorStr = String(error).toLowerCase();
+    
+    if (!process.env.GEMINI_API_KEY) {
+      errorMsg = 'ERRO: A chave da API (GEMINI_API_KEY) não foi encontrada nas configurações do servidor. Adicione a chave para a IA funcionar.';
+    } else if (errorStr.includes('401') || errorStr.includes('unauthenticated') || errorStr.includes('invalid authentication')) {
+      errorMsg = 'ERRO: A chave da API do Google é inválida ou incorreta. Verifique se copiou a chave certa.';
+    }
     if (errorStr.includes('quota') || errorStr.includes('429') || errorStr.includes('resource_exhausted')) {
       errorMsg = 'Cota da API excedida.';
     } else if (errorStr.includes('503') || errorStr.includes('overloaded') || errorStr.includes('timeout')) {
@@ -68,6 +82,14 @@ app.post('/api/ai/insights', async (req, res) => {
 
 app.post('/api/ai/chat', async (req, res) => {
   try {
+    const apiKey = process.env.GEMINI_API_KEY || '';
+    if (apiKey.startsWith('AQ.')) {
+      return res.status(401).json({ error: 'Você está usando uma chave inválida (AQ...). Vá nas Configurações (Secrets) e troque pela chave correta que começa com "AIza...".' });
+    }
+    if (!apiKey) {
+      return res.status(401).json({ error: 'Chave da API não encontrada. Adicione a variável GEMINI_API_KEY nas Configurações (Secrets).' });
+    }
+    const ai = new GoogleGenAI({ apiKey });
     const { message, contextData } = req.body;
     
     const prompt = `Você é um assistente do sistema Gestão Água Cristal Sul. Responda a pergunta do usuário de forma direta e profissional, baseada nos seguintes dados de contexto fornecidos. 
@@ -76,7 +98,7 @@ app.post('/api/ai/chat', async (req, res) => {
     Pergunta do usuário: ${message}`;
 
     const response = await fetchWithTimeout(ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt
     }));
 
@@ -96,12 +118,20 @@ app.post('/api/ai/chat', async (req, res) => {
 
 app.post('/api/ai/ocr', async (req, res) => {
   try {
+    const apiKey = process.env.GEMINI_API_KEY || '';
+    if (apiKey.startsWith('AQ.')) {
+      return res.status(401).json({ error: 'Você está usando uma chave inválida (AQ...). Vá nas Configurações (Secrets) e troque pela chave correta que começa com "AIza...".' });
+    }
+    if (!apiKey) {
+      return res.status(401).json({ error: 'Chave da API não encontrada. Adicione a variável GEMINI_API_KEY nas Configurações (Secrets).' });
+    }
+    const ai = new GoogleGenAI({ apiKey });
     const { imageBase64, mimeType } = req.body;
     
     const prompt = `Analise este comprovante/recibo/nota fiscal. Extraia o valor total pago, a data e uma breve descrição do que se trata. Formate estritamente no JSON solicitado.`;
 
     const response = await fetchWithTimeout(ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: [
         {
           inlineData: {

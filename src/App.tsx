@@ -522,7 +522,7 @@ export function App() {
         <Header
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onOpenGlobalSearch={() => setIsSearchModalOpen(true)}
-          onOpenAiChat={() => setIsAiChatOpen(true)}
+          onOpenAiChat={() => {}}
           onOpenQuickSale={() => handlePermittedQuickSale()}
           onOpenNewSale={() => handlePermittedNewSale()}
           todaySalesTotal={todaySalesTotal}

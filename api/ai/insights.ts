@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
 
 const fetchWithTimeout = async (promise: Promise<any>, ms = 8000) => {
   let timeoutId: any;
@@ -16,6 +16,14 @@ const fetchWithTimeout = async (promise: Promise<any>, ms = 8000) => {
 };
 
 export default async function handler(req: any, res: any) {
+  const apiKey = process.env.GEMINI_API_KEY || '';
+  if (apiKey.startsWith('AQ.')) {
+    return res.status(401).json({ error: 'Você está usando uma chave inválida (AQ...). Vá nas Configurações (Secrets) e troque pela chave correta que começa com "AIza...".' });
+  }
+  if (!apiKey) {
+    return res.status(401).json({ error: 'Chave da API não encontrada. Adicione a variável GEMINI_API_KEY nas Configurações (Secrets).' });
+  }
+  const ai = new GoogleGenAI({ apiKey });
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -33,7 +41,7 @@ export default async function handler(req: any, res: any) {
     Despesas: ${JSON.stringify(expenses?.slice(0, 50))}`;
 
     const response = await fetchWithTimeout(ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -57,6 +65,12 @@ export default async function handler(req: any, res: any) {
     console.error('INSIGHTS ERROR:', error);
     let errorMsg = 'Erro ao gerar insights';
     const errorStr = String(error).toLowerCase();
+    
+    if (!process.env.GEMINI_API_KEY) {
+      errorMsg = 'ERRO: A chave da API (GEMINI_API_KEY) não foi encontrada nas configurações do servidor. Adicione a chave para a IA funcionar.';
+    } else if (errorStr.includes('401') || errorStr.includes('unauthenticated') || errorStr.includes('invalid authentication')) {
+      errorMsg = 'ERRO: A chave da API do Google é inválida ou incorreta. Verifique se copiou a chave certa.';
+    }
     
     if (errorStr.includes('quota') || errorStr.includes('429') || errorStr.includes('resource_exhausted')) {
       errorMsg = 'Cota da API excedida.';
