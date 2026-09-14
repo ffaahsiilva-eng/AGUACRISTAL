@@ -387,7 +387,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
                 Qtd. Comprada
               </span>
               <span className="text-base font-black text-sky-700 block mt-0.5">
-                {stats.totalQuantidade.toLocaleString('pt-BR')} un
+                {stats.totalQuantidade.toLocaleString('pt-BR')} cx
               </span>
               <span className="text-[10px] text-slate-500 mt-0.5 block">galões 20L</span>
             </div>
@@ -891,7 +891,7 @@ export const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({
                             {del.vehicle_name || '-'}
                           </td>
                           <td className="py-2.5 px-3 text-center font-bold text-slate-900">
-                            {del.quantity} un
+                            {del.quantity} cx
                           </td>
                           <td className="py-2.5 px-3 text-slate-600 truncate max-w-xs">
                             {del.address}

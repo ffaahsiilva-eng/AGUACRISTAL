@@ -155,8 +155,8 @@ export const CommissionsView: React.FC<CommissionsViewProps> = ({
                 <p className="text-lg font-bold text-slate-800">{formatCurrency(summary.totalSalesAmount)}</p>
               </div>
               <div className="bg-white/80 p-4 rounded-xl border border-indigo-100 shadow-xs">
-                <p className="text-[10px] uppercase font-bold text-slate-500 mb-1 flex items-center gap-1.5"><Droplets className="w-3.5 h-3.5 text-sky-500" /> Unidades</p>
-                <p className="text-lg font-bold text-slate-800">{summary.gallonsCount} un</p>
+                <p className="text-[10px] uppercase font-bold text-slate-500 mb-1 flex items-center gap-1.5"><Droplets className="w-3.5 h-3.5 text-sky-500" /> Caixas</p>
+                <p className="text-lg font-bold text-slate-800">{summary.gallonsCount} cx</p>
               </div>
             </div>
 
@@ -190,7 +190,7 @@ export const CommissionsView: React.FC<CommissionsViewProps> = ({
                 <th className="py-3 px-4 whitespace-nowrap">Código</th>
                 <th className="py-3 px-4 min-w-[200px]">Cliente</th>
                 <th className="py-3 px-4 whitespace-nowrap">Cidade</th>
-                <th className="py-3 px-4 text-center whitespace-nowrap">Qtd (un)</th>
+                <th className="py-3 px-4 text-center whitespace-nowrap">Qtd (cx)</th>
                 <th className="py-3 px-4 text-right whitespace-nowrap">Valor Total</th>
                 <th className="py-3 px-4 text-right whitespace-nowrap">Comissão</th>
               </tr>

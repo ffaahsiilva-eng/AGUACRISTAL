@@ -150,7 +150,7 @@ export const SaleReceiptModal: React.FC<SaleReceiptModalProps> = ({
                     <span className="font-bold text-slate-900 block">Água Mineral Galão 20 Litros</span>
                     <span className="text-[10px] text-slate-500 block">Retornável • Cristal Sul</span>
                   </td>
-                  <td className="py-2 text-center font-bold text-slate-800">{sale.quantity} un</td>
+                  <td className="py-2 text-center font-bold text-slate-800">{sale.quantity} cx</td>
                   <td className="py-2 text-right text-slate-700">{formatCurrency(sale.unit_price)}</td>
                   <td className="py-2 text-right font-black text-slate-900">{formatCurrency(sale.total_amount)}</td>
                 </tr>

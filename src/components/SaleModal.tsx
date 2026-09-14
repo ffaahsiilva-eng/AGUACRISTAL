@@ -543,7 +543,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
                 <Calculator className="w-5 h-5 text-sky-600 shrink-0" />
                 <div>
                   <span className="text-xs text-slate-500 font-medium block">
-                    Cálculo Automático: {numQuantity} un × {formatCurrency(numUnitPrice)}
+                    Cálculo Automático: {numQuantity} cx × {formatCurrency(numUnitPrice)}
                   </span>
                   <span className="text-xs text-slate-500 font-medium">
                     Minha Comissão prevista ({numCommissionRate}%): {formatCurrency(commissionAmount)}

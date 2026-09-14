@@ -146,7 +146,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
             <div className="flex justify-between items-start">
               <span className="text-xs font-bold text-slate-800">{delivery.client_name}</span>
               <span className="text-xs font-black text-sky-700 bg-sky-100 px-2 py-0.5 rounded">
-                {delivery.quantity} Unidades
+                {delivery.quantity} Caixas
               </span>
             </div>
             <p className="text-xs text-slate-600">{delivery.address} - {delivery.city}</p>

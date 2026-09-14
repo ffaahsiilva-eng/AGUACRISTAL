@@ -166,8 +166,8 @@ export const DriversView: React.FC<DriversViewProps> = ({ onSelectDriverHistory 
                 {/* Performance Metrics */}
                 <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-100 grid grid-cols-2 gap-2 text-center">
                   <div>
-                    <span className="text-[10px] text-slate-400 block font-medium">Unidades</span>
-                    <span className="text-xs font-black text-slate-800">{totalSoldQuantity} un</span>
+                    <span className="text-[10px] text-slate-400 block font-medium">Caixas</span>
+                    <span className="text-xs font-black text-slate-800">{totalSoldQuantity} cx</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block font-medium">Vendas</span>

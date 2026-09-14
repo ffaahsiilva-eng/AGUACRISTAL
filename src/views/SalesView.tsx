@@ -295,7 +295,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
     setConfirmConfig({
       isOpen: true,
       title: 'Gerar Ordem de Entrega',
-      message: `Deseja gerar a ordem de entrega para a venda ${sale.code} (${sale.client_name} - ${sale.quantity} un)? A venda será atualizada para "Em entrega".`,
+      message: `Deseja gerar a ordem de entrega para a venda ${sale.code} (${sale.client_name} - ${sale.quantity} cx)? A venda será atualizada para "Em entrega".`,
       confirmText: 'Gerar Entrega',
       isDestructive: false,
       onConfirm: async () => {
@@ -501,11 +501,11 @@ export const SalesView: React.FC<SalesViewProps> = ({
           </div>
           <p className="text-xl font-black text-slate-900 mt-1.5">
             {formatNumber(quantidadeVendidaTotal)}{' '}
-            <span className="text-xs font-normal text-slate-500">un</span>
+            <span className="text-xs font-normal text-slate-500">cx</span>
           </p>
           <span className="text-[11px] text-slate-400 mt-0.5 block">
             {filteredSales.length > 0
-              ? `Média: ${(quantidadeVendidaTotal / filteredSales.length).toFixed(1)} un/pedido`
+              ? `Média: ${(quantidadeVendidaTotal / filteredSales.length).toFixed(1)} cx/pedido`
               : 'Nenhum pedido'}
           </span>
         </div>
@@ -951,7 +951,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                       {/* Quantidade */}
                       <td className="py-3 px-2.5 text-center whitespace-nowrap">
                         <span className="font-bold text-slate-900 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
-                          {sale.quantity} <span className="text-[10px] font-normal text-slate-500">un</span>
+                          {sale.quantity} <span className="text-[10px] font-normal text-slate-500">cx</span>
                         </span>
                       </td>
 
@@ -1215,7 +1215,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
         } • Emissão: ${new Date().toLocaleDateString('pt-BR')}`}
         summaryCards={[
           { label: 'Total de Vendas', value: formatCurrency(vendasMesTotal), color: 'text-sky-900' },
-          { label: 'Quantidade Vendida', value: `${formatNumber(quantidadeVendidaTotal)} un` },
+          { label: 'Quantidade Vendida', value: `${formatNumber(quantidadeVendidaTotal)} cx` },
           { label: 'Vendas no Relatório', value: `${filteredSales.length} pedidos` },
           { label: 'Total a Receber', value: formatCurrency(aReceberTotal), color: 'text-amber-800' },
         ]}
@@ -1243,8 +1243,8 @@ export const SalesView: React.FC<SalesViewProps> = ({
             value: formatCurrency(filteredSales.reduce((acc, curr) => acc + curr.total_amount, 0)),
           },
           {
-            label: 'Total de Unidades Entregues:',
-            value: `${formatNumber(quantidadeVendidaTotal)} unidades`,
+            label: 'Total de Caixas Entregues:',
+            value: `${formatNumber(quantidadeVendidaTotal)} caixas`,
           },
         ]}
       />

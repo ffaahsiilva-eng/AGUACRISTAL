@@ -238,7 +238,7 @@ export const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({
             <div className="p-3 bg-sky-50 rounded-xl border border-sky-200">
               <span className="text-[10px] font-bold text-sky-700 uppercase block">Valor Total</span>
               <p className="text-base font-black text-sky-900 mt-0.5">{formatCurrency(sale.total_amount)}</p>
-              <span className="text-[11px] text-sky-600 block">{sale.quantity} unidades</span>
+              <span className="text-[11px] text-sky-600 block">{sale.quantity} caixas</span>
             </div>
 
             <div
@@ -342,8 +342,8 @@ export const SaleDetailsModal: React.FC<SaleDetailsModalProps> = ({
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between items-center py-0.5 border-b border-slate-50">
-                  <span className="text-slate-500">Unidades de Água 20L:</span>
-                  <span className="font-bold text-slate-900">{sale.quantity} unidades</span>
+                  <span className="text-slate-500">Caixas de Água 20L:</span>
+                  <span className="font-bold text-slate-900">{sale.quantity} caixas</span>
                 </div>
                 <div className="flex justify-between items-center py-0.5 border-b border-slate-50">
                   <span className="text-slate-500">Valor Unitário:</span>

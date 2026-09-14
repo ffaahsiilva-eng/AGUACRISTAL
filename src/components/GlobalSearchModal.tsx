@@ -197,7 +197,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                             </span>
                           </div>
                           <span className="text-[11px] text-slate-500 mt-0.5">
-                            {formatDate(sale.sale_date)} • {sale.quantity} un • {sale.city} • Mot: {sale.driver_name || 'N/A'}
+                            {formatDate(sale.sale_date)} • {sale.quantity} cx • {sale.city} • Mot: {sale.driver_name || 'N/A'}
                           </span>
                         </div>
                         <div className="text-right">
@@ -249,7 +249,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                             </span>
                           </div>
                           <span className="text-[11px] text-slate-500 mt-0.5">
-                            {del.address} • {del.quantity} un • Motorista: {del.driver_name}
+                            {del.address} • {del.quantity} cx • Motorista: {del.driver_name}
                           </span>
                         </div>
                         <span

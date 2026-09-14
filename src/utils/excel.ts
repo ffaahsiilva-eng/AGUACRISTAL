@@ -100,7 +100,7 @@ export async function parseExcelOrCsv(file: File): Promise<{ rows: ParsedSaleRow
           const city = String(findVal(['cidade', 'municipio'])).trim() || 'Balneário Camboriú';
           const driver_name = String(findVal(['motorista', 'entregador'])).trim() || 'A definir';
 
-          const rawQty = findVal(['quantidade', 'qtd', 'volume', 'unidades']);
+          const rawQty = findVal(['quantidade', 'qtd', 'volume', 'unidades', 'caixas', 'cx']);
           const quantity = Math.max(1, Number(String(rawQty).replace(',', '.')) || 1);
 
           const rawUnitPrice = findVal(['valor unitario', 'unitario', 'valor unit', 'preco unitario', 'preco']);

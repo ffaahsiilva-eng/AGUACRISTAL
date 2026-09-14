@@ -427,21 +427,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Card 2: Quantidade Vendida (Unidades) */}
+        {/* Card 2: Quantidade Vendida (Caixas) */}
         <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Unidades
+              Caixas
             </span>
             <div className="p-2 rounded-xl bg-blue-100 text-blue-700">
               <Droplets className="w-4 h-4" />
             </div>
           </div>
           <p className="text-xl font-black text-slate-900 mt-2">
-            {formatNumber(totalQuantitySold)} <span className="text-xs font-semibold text-slate-500">un</span>
+            {formatNumber(totalQuantitySold)} <span className="text-xs font-semibold text-slate-500">cx</span>
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Média: {filteredSales.length > 0 ? (totalQuantitySold / filteredSales.length).toFixed(1) : 0} un/pedido
+            Média: {filteredSales.length > 0 ? (totalQuantitySold / filteredSales.length).toFixed(1) : 0} cx/pedido
           </p>
         </div>
 
@@ -607,7 +607,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <span className="text-[11px] text-slate-500">{item.count} viagens / pedidos</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-black text-sky-900 block">{item.quantity} un</span>
+                    <span className="text-xs font-black text-sky-900 block">{item.quantity} cx</span>
                     <span className="text-[11px] font-semibold text-slate-500">{formatCurrency(item.total)}</span>
                   </div>
                 </div>
@@ -675,7 +675,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <td className="py-2.5 px-3 font-bold text-slate-900">{sale.client_name}</td>
                     <td className="py-2.5 px-3 text-slate-600">{sale.city}</td>
                     <td className="py-2.5 px-3 text-slate-600">{sale.driver_name || 'A definir'}</td>
-                    <td className="py-2.5 px-3 text-center font-bold text-slate-800">{sale.quantity} un</td>
+                    <td className="py-2.5 px-3 text-center font-bold text-slate-800">{sale.quantity} cx</td>
                     <td className="py-2.5 px-3 text-right font-black text-slate-900">
                       {formatCurrency(sale.total_amount)}
                     </td>

@@ -131,7 +131,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
         dailyReport.map((r) => ({
           Data: formatDate(r.date),
           Pedidos: r.count,
-          'Unidades Vendidas': r.quantity,
+          'Caixas Vendidas': r.quantity,
           'Valor Total': r.total,
         })),
         `Relatorio_Vendas_Diarias_${startDate}_${endDate}`
@@ -141,7 +141,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
         driverReport.map((r) => ({
           Motorista: r.driver,
           'Nº Pedidos': r.count,
-          'Unidades Entregues': r.quantity,
+          'Caixas Entregues': r.quantity,
           'Faturamento Vendas': r.total,
           
         })),
@@ -152,7 +152,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
         cityReport.map((r) => ({
           Cidade: r.city,
           Pedidos: r.count,
-          Unidades: r.quantity,
+          Caixas: r.quantity,
           Faturamento: r.total,
         })),
         `Relatorio_Vendas_Por_Cidade_${startDate}_${endDate}`
@@ -178,7 +178,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
     let rows: any[] = [];
     let summaryCards = [
       { label: 'Total Faturamento', value: formatCurrency(totalAmount) },
-      { label: 'Unidades Comercializadas', value: `${formatNumber(totalQuantity)} un` },
+      { label: 'Caixas Comercializadas', value: `${formatNumber(totalQuantity)} cx` },
       { label: 'Total de Pedidos', value: `${filteredSales.length}` },
     ];
 
@@ -187,7 +187,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
       columns = [
         { header: 'Data', key: 'dateFormatted' },
         { header: 'Qtd Pedidos', key: 'count', align: 'center' },
-        { header: 'Unidades Vendidas', key: 'quantity', align: 'center' },
+        { header: 'Caixas Vendidas', key: 'quantity', align: 'center' },
         { header: 'Faturamento Total', key: 'totalFormatted', align: 'right' },
       ];
       rows = dailyReport.map((r) => ({
@@ -200,7 +200,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
       columns = [
         { header: 'Motorista', key: 'driver' },
         { header: 'Pedidos', key: 'count', align: 'center' },
-        { header: 'Unidades', key: 'quantity', align: 'center' },
+        { header: 'Caixas', key: 'quantity', align: 'center' },
         { header: 'Total Vendas', key: 'totalFormatted', align: 'right' },
         
       ];
@@ -214,7 +214,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
       columns = [
         { header: 'Cidade', key: 'city' },
         { header: 'Pedidos', key: 'count', align: 'center' },
-        { header: 'Unidades', key: 'quantity', align: 'center' },
+        { header: 'Caixas', key: 'quantity', align: 'center' },
         { header: 'Faturamento', key: 'totalFormatted', align: 'right' },
       ];
       rows = cityReport.map((r) => ({
@@ -385,8 +385,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
             <span className="font-black text-slate-900 text-sm">{formatCurrency(totalAmount)}</span>
           </div>
           <div>
-            <span className="text-slate-400 block text-[11px]">Unidades</span>
-            <span className="font-bold text-slate-800 text-sm">{formatNumber(totalQuantity)} un</span>
+            <span className="text-slate-400 block text-[11px]">Caixas</span>
+            <span className="font-bold text-slate-800 text-sm">{formatNumber(totalQuantity)} cx</span>
           </div>
         </div>
       </div>
@@ -400,7 +400,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
                 <tr>
                   <th className="py-3 px-4">Data</th>
                   <th className="py-3 px-4 text-center">Nº de Pedidos</th>
-                  <th className="py-3 px-4 text-center">Unidades Vendidas</th>
+                  <th className="py-3 px-4 text-center">Caixas Vendidas</th>
                   <th className="py-3 px-4 text-right">Faturamento Total</th>
                   <th className="py-3 px-4 text-right">Média por Pedido</th>
                 </tr>
@@ -410,7 +410,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
                   <tr key={r.date} className="hover:bg-slate-50">
                     <td className="py-3 px-4 font-bold text-slate-900">{formatDate(r.date)}</td>
                     <td className="py-3 px-4 text-center text-slate-700">{r.count}</td>
-                    <td className="py-3 px-4 text-center font-bold text-sky-800">{r.quantity} un</td>
+                    <td className="py-3 px-4 text-center font-bold text-sky-800">{r.quantity} cx</td>
                     <td className="py-3 px-4 text-right font-black text-slate-900">
                       {formatCurrency(r.total)}
                     </td>
@@ -429,7 +429,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
                 <tr>
                   <th className="py-3 px-4">Motorista</th>
                   <th className="py-3 px-4 text-center">Entregas / Pedidos</th>
-                  <th className="py-3 px-4 text-center">Unidades Entregues</th>
+                  <th className="py-3 px-4 text-center">Caixas Entregues</th>
                   <th className="py-3 px-4 text-right">Volume Total Vendido</th>
                   
                 </tr>
@@ -439,7 +439,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
                   <tr key={r.driver} className="hover:bg-slate-50">
                     <td className="py-3 px-4 font-bold text-slate-900">{r.driver}</td>
                     <td className="py-3 px-4 text-center text-slate-700">{r.count}</td>
-                    <td className="py-3 px-4 text-center font-bold text-indigo-800">{r.quantity} un</td>
+                    <td className="py-3 px-4 text-center font-bold text-indigo-800">{r.quantity} cx</td>
                     <td className="py-3 px-4 text-right font-semibold text-slate-900">
                       {formatCurrency(r.total)}
                     </td>
@@ -456,7 +456,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
                 <tr>
                   <th className="py-3 px-4">Cidade / Região</th>
                   <th className="py-3 px-4 text-center">Nº de Vendas</th>
-                  <th className="py-3 px-4 text-center">Unidades Entregues</th>
+                  <th className="py-3 px-4 text-center">Caixas Entregues</th>
                   <th className="py-3 px-4 text-right">Faturamento Total</th>
                   <th className="py-3 px-4 text-right">% do Total</th>
                 </tr>
@@ -466,7 +466,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
                   <tr key={r.city} className="hover:bg-slate-50">
                     <td className="py-3 px-4 font-bold text-slate-900">{r.city}</td>
                     <td className="py-3 px-4 text-center text-slate-700">{r.count}</td>
-                    <td className="py-3 px-4 text-center font-bold text-emerald-800">{r.quantity} un</td>
+                    <td className="py-3 px-4 text-center font-bold text-emerald-800">{r.quantity} cx</td>
                     <td className="py-3 px-4 text-right font-black text-slate-900">
                       {formatCurrency(r.total)}
                     </td>

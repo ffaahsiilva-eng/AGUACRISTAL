@@ -232,7 +232,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                     </div>
                     <div>
                       <span className="block text-[10px] text-slate-400 font-semibold uppercase">Quantidade</span>
-                      <span className="font-bold text-sky-800">{del.quantity} un</span>
+                      <span className="font-bold text-sky-800">{del.quantity} cx</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-slate-100">
@@ -255,7 +255,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                 <th className="py-3 px-3 min-w-[150px]">Cliente</th>
                 <th className="py-3 px-3 min-w-[200px]">Endereço</th>
                 <th className="py-3 px-3 whitespace-nowrap">Motorista / Veículo</th>
-                <th className="py-3 px-3 text-center whitespace-nowrap">Qtd (un)</th>
+                <th className="py-3 px-3 text-center whitespace-nowrap">Qtd (cx)</th>
                 <th className="py-3 px-3 text-center whitespace-nowrap">Horários</th>
                 <th className="py-3 px-3 text-center whitespace-nowrap">Status</th>
                 <th className="py-3 px-3 text-center whitespace-nowrap">Ações</th>
@@ -295,7 +295,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                       )}
                     </td>
                     <td className="py-3 px-3 text-center font-bold text-sky-800">
-                      {del.quantity} un
+                      {del.quantity} cx
                     </td>
                     <td className="py-3 px-3 text-center whitespace-nowrap text-[11px] text-slate-500">
                       {del.departure_time && <div>Saída: {del.departure_time}</div>}

@@ -314,7 +314,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         'Preço Padrão (R$)': c.valor_unitario_padrao || 25.5,
         'Limite de Crédito (R$)': c.limite_credito || 0,
         'Total Comprado (R$)': stats?.totalComprado || 0,
-        'Qtd Comprada (un)': stats?.totalQuantidade || 0,
+        'Qtd Comprada (cx)': stats?.totalQuantidade || 0,
         'Total Vendas': stats?.totalVendas || 0,
         'Total Pendente (R$)': stats?.totalPendente || 0,
         'Entregas Realizadas': stats?.entregasRealizadas || 0,
@@ -446,9 +446,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
             <Package className="w-4 h-4 text-sky-600" />
           </div>
           <span className="text-lg font-black text-slate-900 block mt-1">
-            {dashboardMetrics.totalVolumePurchased.toLocaleString('pt-BR')} un
+            {dashboardMetrics.totalVolumePurchased.toLocaleString('pt-BR')} cx
           </span>
-          <span className="text-[11px] text-slate-500 block mt-0.5">unidades</span>
+          <span className="text-[11px] text-slate-500 block mt-0.5">caixas</span>
         </div>
 
         {/* Faturamento Acumulado */}
@@ -780,7 +780,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                       {/* Coluna 7: Quantidade */}
                       <td className="py-3 px-3 text-center">
                         <span className="font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded text-[11px]">
-                          {totalQtd} un
+                          {totalQtd} cx
                         </span>
                       </td>
 
