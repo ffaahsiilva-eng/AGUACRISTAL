@@ -13,6 +13,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      // Suprime avisos inofensivos de WebSocket/HMR que ocorrem no ambiente de contêiner com HMR desativado
+      window.addEventListener('unhandledrejection', function(event) {
+        var msg = String(event.reason || (event.reason && event.reason.message) || '');
+        if (msg.toLowerCase().includes('websocket')) {
+          event.preventDefault();
+        }
+      });
+    </script>
   </head>
   <body class="font-sans antialiased bg-slate-50 text-slate-900 selection:bg-sky-500 selection:text-white">
     <div id="root"></div>
