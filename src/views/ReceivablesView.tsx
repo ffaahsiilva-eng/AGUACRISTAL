@@ -211,10 +211,10 @@ export const ReceivablesView: React.FC<ReceivablesViewProps> = ({
           
           {/* Mobile Cards */}
           <div className="md:hidden divide-y divide-slate-100">
-            {filteredReceivables.length === 0 ? (
+            {pendingSales.length === 0 ? (
               <div className="py-12 text-center text-slate-400">Nenhuma conta encontrada com os filtros selecionados.</div>
             ) : (
-              filteredReceivables.map((rec) => (
+              pendingSales.map((rec) => (
                 <div key={"mob-"+rec.id} className="p-4 bg-white">
                   <div className="flex justify-between items-start mb-2">
                     <div>
@@ -240,7 +240,7 @@ export const ReceivablesView: React.FC<ReceivablesViewProps> = ({
                   </div>
                   <div className="pt-3 border-t border-slate-100">
                     <button 
-                      onClick={() => onReceivePayment(rec)} 
+                      onClick={() => onOpenReceivePaymentModal(rec)} 
                       disabled={rec.payment_status === 'Pago'}
                       className="w-full p-2.5 rounded-lg font-bold text-xs bg-sky-600 text-white hover:bg-sky-500 disabled:opacity-50 transition-colors"
                     >

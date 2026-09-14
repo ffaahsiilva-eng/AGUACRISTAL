@@ -8,15 +8,20 @@ interface ExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
   expenseToEdit?: Expense | null;
-  onSaved: (expense: Expense) => void;
+  expense?: Expense | null;
+  initialIsFuel?: boolean;
+  onSaved?: (expense: Expense) => void;
 }
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   isOpen,
   onClose,
   expenseToEdit,
+  expense,
+  initialIsFuel,
   onSaved,
 }) => {
+  const activeExpense = expenseToEdit || expense || null;
   const categories = storage.getCategories();
   const drivers = storage.getDrivers();
   const vehicles = storage.getVehicles();
@@ -47,29 +52,29 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const [gasStation, setGasStation] = useState('');
 
   useEffect(() => {
-    if (expenseToEdit) {
-      setIsFuel(expenseToEdit.is_fuel || expenseToEdit.category_name.toLowerCase().includes('combust'));
-      setExpenseDate(expenseToEdit.expense_date);
-      setDescription(expenseToEdit.description);
-      setCategoryId(expenseToEdit.category_id);
-      setCategoryName(expenseToEdit.category_name);
-      setAmount(expenseToEdit.amount);
-      setPaymentMethod(expenseToEdit.payment_method);
-      setDriverId(expenseToEdit.driver_id || '');
-      setDriverName(expenseToEdit.driver_name || '');
-      setVehicleId(expenseToEdit.vehicle_id || '');
-      setVehicleName(expenseToEdit.vehicle_name || '');
-      setSaleId(expenseToEdit.sale_id || '');
-      setSupplier(expenseToEdit.supplier || '');
-      setDocNumber(expenseToEdit.doc_number || '');
-      setReceiptAttachment(expenseToEdit.receipt_attachment);
-      setObservation(expenseToEdit.observation || '');
-      setFuelLiters(expenseToEdit.fuel_liters || '');
-      setFuelPricePerLiter(expenseToEdit.fuel_price_per_liter || '5.99');
-      setFuelOdometer(expenseToEdit.fuel_odometer || '');
-      setGasStation(expenseToEdit.gas_station || expenseToEdit.supplier || '');
+    if (activeExpense) {
+      setIsFuel(activeExpense.is_fuel || activeExpense.category_name.toLowerCase().includes('combust'));
+      setExpenseDate(activeExpense.expense_date);
+      setDescription(activeExpense.description);
+      setCategoryId(activeExpense.category_id);
+      setCategoryName(activeExpense.category_name);
+      setAmount(activeExpense.amount);
+      setPaymentMethod(activeExpense.payment_method);
+      setDriverId(activeExpense.driver_id || '');
+      setDriverName(activeExpense.driver_name || '');
+      setVehicleId(activeExpense.vehicle_id || '');
+      setVehicleName(activeExpense.vehicle_name || '');
+      setSaleId(activeExpense.sale_id || '');
+      setSupplier(activeExpense.supplier || '');
+      setDocNumber(activeExpense.doc_number || '');
+      setReceiptAttachment(activeExpense.receipt_attachment);
+      setObservation(activeExpense.observation || '');
+      setFuelLiters(activeExpense.fuel_liters || '');
+      setFuelPricePerLiter(activeExpense.fuel_price_per_liter || '5.99');
+      setFuelOdometer(activeExpense.fuel_odometer || '');
+      setGasStation(activeExpense.gas_station || activeExpense.supplier || '');
     } else {
-      setIsFuel(false);
+      setIsFuel(Boolean(initialIsFuel));
       setExpenseDate(getTodayDateString());
       setDescription('');
       const defaultCat = categories[0] || { id: 'cat-18', name: 'Outros' };
@@ -91,7 +96,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       setFuelOdometer('');
       setGasStation('');
     }
-  }, [expenseToEdit, isOpen]);
+  }, [activeExpense, initialIsFuel, isOpen]);
 
   // Handle Fuel toggle or Category change
   const handleCategoryChange = (catId: string) => {
@@ -122,8 +127,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
   const numPriceLiter = Number(fuelPricePerLiter) || 0;
   const computedFuelTotal = Math.round(numLiters * numPriceLiter * 100) / 100;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e?.preventDefault) {
+      e.preventDefault();
+    }
 
     let finalAmount = Number(amount) || 0;
     if (isFuel) {
@@ -135,9 +142,9 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       return;
     }
 
-    const saved = await storage.saveExpense({
-      id: expenseToEdit?.id,
-      code: expenseToEdit?.code,
+    const payload = {
+      id: activeExpense?.id,
+      code: activeExpense?.code,
       expense_date: expenseDate,
       description: isFuel
         ? description || `Abastecimento Combustível ${numLiters}L`
@@ -160,9 +167,17 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
       fuel_odometer: isFuel ? Number(fuelOdometer) || undefined : undefined,
       gas_station: isFuel ? gasStation || supplier : undefined,
       observation,
+    };
+
+    // Salva a despesa imediatamente no armazenamento local e inicia a sincronização
+    storage.saveExpense(payload).then((saved) => {
+      if (onSaved) {
+        onSaved(saved);
+      }
+    }).catch((err) => {
+      console.error('Erro ao salvar despesa:', err);
     });
 
-    onSaved(saved);
     onClose();
   };
 
@@ -526,10 +541,10 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({
           <button
             type="button"
             onClick={handleSubmit}
-            className="flex items-center gap-1.5 px-6 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-md shadow-rose-600/20 active:scale-95 transition-all"
+            className="flex items-center gap-1.5 px-6 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl shadow-md shadow-rose-600/20 active:scale-95 transition-all cursor-pointer"
           >
             <Check className="w-4 h-4" />
-            <span>{expenseToEdit ? 'Salvar Alterações' : 'Cadastrar Despesa'}</span>
+            <span>{activeExpense ? 'Salvar Alterações' : 'Cadastrar Despesa'}</span>
           </button>
         </div>
       </div>

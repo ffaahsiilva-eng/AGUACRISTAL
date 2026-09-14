@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, onSnapshot, getDocs, deleteDoc, query, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, getDocs, getDoc, deleteDoc, query, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import {
   User,
@@ -39,6 +39,11 @@ const STORAGE_KEYS = {
   SETTINGS: 'aguacristal_settings_v2',
   AUDIT_LOGS: 'aguacristal_audit_logs_v2',
   CURRENT_USER: 'aguacristal_current_user_v2',
+  DELETED_SALES_IDS: 'aguacristal_deleted_sales_ids_v2',
+  DELETED_DELIVERY_IDS: 'aguacristal_deleted_delivery_ids_v2',
+  DELETED_EXPENSE_IDS: 'aguacristal_deleted_expense_ids_v2',
+  DELETED_CLIENT_IDS: 'aguacristal_deleted_client_ids_v2',
+  DELETED_DRIVER_IDS: 'aguacristal_deleted_driver_ids_v2',
 };
 
 // Event listener mechanism to broadcast storage updates across components
@@ -131,54 +136,101 @@ class StorageService {
 
     // Migrate Settings
     const settingsSnap = await getDocs(collection(db, 'settings'));
-    if (settingsSnap.empty) {
+    const isFirstTimeInit = settingsSnap.empty;
+    if (isFirstTimeInit) {
       await setDoc(doc(db, 'settings', 'company'), localSettings);
       await setDoc(doc(db, 'settings', 'company_info'), localCompanyInfo);
+      await setDoc(doc(db, 'settings', 'database_initialized'), {
+        initialized: true,
+        initialized_at: new Date().toISOString(),
+      });
     }
 
-    
-    // Migrate Sales
+    // Migrate Sales ONLY if brand-new database initialization
     const salesSnap = await getDocs(collection(db, 'sales'));
-    if (salesSnap.empty && this.getSales().length > 0) {
+    if (isFirstTimeInit && salesSnap.empty && this.getSales().length > 0) {
       const batch = writeBatch(db);
       this.getSales().forEach(s => batch.set(doc(db, 'sales', s.id), s));
       await batch.commit();
     }
 
-    // Migrate Deliveries
+    // Migrate Deliveries ONLY if brand-new database initialization
     const deliveriesSnap = await getDocs(collection(db, 'deliveries'));
-    if (deliveriesSnap.empty && this.getDeliveries().length > 0) {
+    if (isFirstTimeInit && deliveriesSnap.empty && this.getDeliveries().length > 0) {
       const batch = writeBatch(db);
       this.getDeliveries().forEach(d => batch.set(doc(db, 'deliveries', d.id), d));
       await batch.commit();
     }
 
-    // Migrate Expenses
+    // Migrate Expenses ONLY if brand-new database initialization
     const expensesSnap = await getDocs(collection(db, 'expenses'));
-    if (expensesSnap.empty && this.getExpenses().length > 0) {
+    if (isFirstTimeInit && expensesSnap.empty && this.getExpenses().length > 0) {
       const batch = writeBatch(db);
       this.getExpenses().forEach(e => batch.set(doc(db, 'expenses', e.id), e));
       await batch.commit();
     }
 
-    // Listeners for Sales, Deliveries, Expenses
+    // Listeners for Sales, Deliveries, Expenses with deleted IDs safeguard
     onSnapshot(collection(db, 'sales'), (snapshot) => {
-      const items: any[] = [];
-      snapshot.forEach(doc => items.push(doc.data()));
+      const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
+      const items: Sale[] = [];
+      snapshot.forEach((docSnap) => {
+        const item = docSnap.data() as Sale;
+        if (deletedIds.includes(item.id) || item.is_deleted) {
+          // Asynchronously purge from Firestore if it somehow still exists
+          deleteDoc(docSnap.ref).catch(() => {});
+        } else {
+          items.push(item);
+        }
+      });
+      items.sort((a, b) => {
+        const timeA = a.created_at || a.sale_date || '';
+        const timeB = b.created_at || b.sale_date || '';
+        if (timeB !== timeA) return timeB.localeCompare(timeA);
+        return (b.code || '').localeCompare(a.code || '');
+      });
       setItem(STORAGE_KEYS.SALES, items);
       notifyStorageChange();
     });
 
     onSnapshot(collection(db, 'deliveries'), (snapshot) => {
-      const items: any[] = [];
-      snapshot.forEach(doc => items.push(doc.data()));
+      const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+      const items: Delivery[] = [];
+      snapshot.forEach((docSnap) => {
+        const item = docSnap.data() as Delivery;
+        if (deletedIds.includes(item.id) || item.is_deleted) {
+          deleteDoc(docSnap.ref).catch(() => {});
+        } else {
+          items.push(item);
+        }
+      });
+      items.sort((a, b) => {
+        const timeA = a.created_at || a.delivery_date || '';
+        const timeB = b.created_at || b.delivery_date || '';
+        if (timeB !== timeA) return timeB.localeCompare(timeA);
+        return (b.code || '').localeCompare(a.code || '');
+      });
       setItem(STORAGE_KEYS.DELIVERIES, items);
       notifyStorageChange();
     });
 
     onSnapshot(collection(db, 'expenses'), (snapshot) => {
-      const items: any[] = [];
-      snapshot.forEach(doc => items.push(doc.data()));
+      const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+      const items: Expense[] = [];
+      snapshot.forEach((docSnap) => {
+        const item = docSnap.data() as Expense;
+        if (deletedIds.includes(item.id) || item.is_deleted) {
+          deleteDoc(docSnap.ref).catch(() => {});
+        } else {
+          items.push(item);
+        }
+      });
+      items.sort((a, b) => {
+        const timeA = a.created_at || a.expense_date || '';
+        const timeB = b.created_at || b.expense_date || '';
+        if (timeB !== timeA) return timeB.localeCompare(timeA);
+        return (b.code || '').localeCompare(a.code || '');
+      });
       setItem(STORAGE_KEYS.EXPENSES, items);
       notifyStorageChange();
     });
@@ -192,15 +244,31 @@ class StorageService {
     });
 
     onSnapshot(collection(db, 'clients'), (snapshot) => {
+      const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_CLIENT_IDS, []);
       const items: any[] = [];
-      snapshot.forEach(doc => items.push(doc.data()));
+      snapshot.forEach((docSnap) => {
+        const item = docSnap.data() as Client;
+        if (deletedIds.includes(item.id) || item.is_deleted) {
+          deleteDoc(docSnap.ref).catch(() => {});
+        } else {
+          items.push(item);
+        }
+      });
       setItem(STORAGE_KEYS.CLIENTS, items);
       notifyStorageChange();
     });
 
     onSnapshot(collection(db, 'drivers'), (snapshot) => {
+      const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_DRIVER_IDS, []);
       const items: any[] = [];
-      snapshot.forEach(doc => items.push(doc.data()));
+      snapshot.forEach((docSnap) => {
+        const item = docSnap.data() as Driver;
+        if (deletedIds.includes(item.id) || item.is_deleted) {
+          deleteDoc(docSnap.ref).catch(() => {});
+        } else {
+          items.push(item);
+        }
+      });
       setItem(STORAGE_KEYS.DRIVERS, items);
       notifyStorageChange();
     });
@@ -327,7 +395,9 @@ class StorageService {
 
   // Clients
   public getClients(): Client[] {
-    return getItem<Client[]>(STORAGE_KEYS.CLIENTS, []);
+    const clients = getItem<Client[]>(STORAGE_KEYS.CLIENTS, []);
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_CLIENT_IDS, []);
+    return clients.filter((c) => c && !c.is_deleted && !deletedIds.includes(c.id));
   }
 
   public getClientById(id: string): Client | undefined {
@@ -483,17 +553,30 @@ class StorageService {
     return updated;
   }
 
-  public deleteClient(id: string): void {
+  public async deleteClient(id: string): Promise<void> {
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_CLIENT_IDS, []);
+    if (!deletedIds.includes(id)) {
+      deletedIds.push(id);
+      setItem(STORAGE_KEYS.DELETED_CLIENT_IDS, deletedIds);
+    }
     const client = this.getClientById(id);
     const clients = this.getClients().filter((c) => c.id !== id);
     setItem(STORAGE_KEYS.CLIENTS, clients);
     this.logAudit('Exclusão', 'Cliente', id, `Cliente excluído: ${client?.name || id}`);
     notifyStorageChange();
+
+    try {
+      await deleteDoc(doc(db, 'clients', id));
+    } catch (err) {
+      console.error('Erro ao excluir cliente no Firestore:', err);
+    }
   }
 
   // Drivers
   public getDrivers(): Driver[] {
-    return getItem<Driver[]>(STORAGE_KEYS.DRIVERS, []);
+    const drivers = getItem<Driver[]>(STORAGE_KEYS.DRIVERS, []);
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_DRIVER_IDS, []);
+    return drivers.filter((d) => d && !d.is_deleted && !deletedIds.includes(d.id));
   }
 
   public getDriverById(id: string): Driver | undefined {
@@ -504,6 +587,12 @@ class StorageService {
     const drivers = this.getDrivers();
     const now = new Date().toISOString();
     
+    // Clear deleted mark if exists
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_DRIVER_IDS, []);
+    if (deletedIds.includes(driver.id)) {
+      setItem(STORAGE_KEYS.DELETED_DRIVER_IDS, deletedIds.filter(i => i !== driver.id));
+    }
+
     const isNew = !drivers.some(d => d.id === driver.id);
     
     if (!driver.created_at) {
@@ -526,12 +615,23 @@ class StorageService {
     return driver;
   }
 
-  public deleteDriver(id: string): void {
+  public async deleteDriver(id: string): Promise<void> {
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_DRIVER_IDS, []);
+    if (!deletedIds.includes(id)) {
+      deletedIds.push(id);
+      setItem(STORAGE_KEYS.DELETED_DRIVER_IDS, deletedIds);
+    }
     const driver = this.getDriverById(id);
     const drivers = this.getDrivers().filter((d) => d.id !== id);
     setItem(STORAGE_KEYS.DRIVERS, drivers);
     this.logAudit('Exclusão', 'Motorista', id, `Motorista excluído: ${driver?.name || id}`);
     notifyStorageChange();
+
+    try {
+      await deleteDoc(doc(db, 'drivers', id));
+    } catch (err) {
+      console.error('Erro ao excluir motorista no Firestore:', err);
+    }
   }
 
   // Vehicles
@@ -557,7 +657,16 @@ class StorageService {
 
   // Sales
   public getSales(): Sale[] {
-    return getItem<Sale[]>(STORAGE_KEYS.SALES, []);
+    const sales = getItem<Sale[]>(STORAGE_KEYS.SALES, []);
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
+    return sales
+      .filter((s) => s && !s.is_deleted && !deletedIds.includes(s.id))
+      .sort((a, b) => {
+        const timeA = a.created_at || a.sale_date || '';
+        const timeB = b.created_at || b.sale_date || '';
+        if (timeB !== timeA) return timeB.localeCompare(timeA);
+        return (b.code || '').localeCompare(a.code || '');
+      });
   }
 
   public getSaleById(id: string): Sale | undefined {
@@ -651,6 +760,9 @@ class StorageService {
         created_by: currentUser.name,
       };
       sales.unshift(sale);
+      // Immediately persist so other synchronous hooks can find this sale
+      setItem(STORAGE_KEYS.SALES, sales);
+      notifyStorageChange();
 
       this.logAudit(
         'Criação',
@@ -698,6 +810,8 @@ class StorageService {
         updated_at: now,
       };
       sales[index] = sale;
+      setItem(STORAGE_KEYS.SALES, sales);
+      notifyStorageChange();
 
       this.logAudit(
         'Alteração',
@@ -711,6 +825,23 @@ class StorageService {
       // Update related delivery address/client if changed
       this.syncDeliveryForSale(sale);
     }
+
+    // Ensure it's not marked as deleted
+    const deletedSaleIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
+    if (deletedSaleIds.includes(sale.id)) {
+      setItem(STORAGE_KEYS.DELETED_SALES_IDS, deletedSaleIds.filter(i => i !== sale.id));
+    }
+
+    // Ensure final state with delivery/payment adjustments is saved and broadcast
+    const currentSales = getItem<Sale[]>(STORAGE_KEYS.SALES, []);
+    const finalIdx = currentSales.findIndex((s) => s.id === sale.id);
+    if (finalIdx >= 0) {
+      sale = currentSales[finalIdx];
+    } else {
+      currentSales.unshift(sale);
+      setItem(STORAGE_KEYS.SALES, currentSales);
+    }
+    notifyStorageChange();
 
     await setDoc(doc(db, 'sales', sale.id), sale);
     return sale;
@@ -734,11 +865,13 @@ class StorageService {
     // Also cancel related deliveries
     const deliveries = this.getDeliveries();
     let deliveryChanged = false;
+    const deliveriesToUpdate: Delivery[] = [];
     deliveries.forEach((d) => {
       if (d.sale_id === id) {
         d.status = 'Cancelada';
         d.updated_at = new Date().toISOString();
         deliveryChanged = true;
+        deliveriesToUpdate.push(d);
       }
     });
     if (deliveryChanged) {
@@ -747,6 +880,16 @@ class StorageService {
 
     this.logAudit('Alteração', 'Venda', id, `Venda ${sale.code} cancelada.`);
     notifyStorageChange();
+
+    try {
+      await setDoc(doc(db, 'sales', id), sales[index]);
+      for (const d of deliveriesToUpdate) {
+        await setDoc(doc(db, 'deliveries', d.id), d);
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar cancelamento no Firestore:', e);
+    }
+
     return sales[index];
   }
 
@@ -787,23 +930,58 @@ class StorageService {
 
   public async deleteSale(id: string): Promise<void> {
     const sale = this.getSaleById(id);
+
+    // 1. Add to permanent deleted IDs list to prevent any resurrect race condition
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
+    if (!deletedIds.includes(id)) {
+      deletedIds.push(id);
+      setItem(STORAGE_KEYS.DELETED_SALES_IDS, deletedIds);
+    }
+
+    // 2. Remove from local sales
     const sales = this.getSales().filter((s) => s.id !== id);
     setItem(STORAGE_KEYS.SALES, sales);
 
-    // Also remove related deliveries and payments
+    // 3. Remove and track related deliveries
+    const relatedDeliveries = this.getDeliveries().filter((d) => d.sale_id === id);
     const deliveries = this.getDeliveries().filter((d) => d.sale_id !== id);
     setItem(STORAGE_KEYS.DELIVERIES, deliveries);
+    const deletedDelIds = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+    relatedDeliveries.forEach((d) => {
+      if (!deletedDelIds.includes(d.id)) deletedDelIds.push(d.id);
+    });
+    setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, deletedDelIds);
 
+    // 4. Remove related payments
     const payments = this.getPayments().filter((p) => p.sale_id !== id);
     setItem(STORAGE_KEYS.PAYMENTS, payments);
 
     this.logAudit('Exclusão', 'Venda', id, `Venda excluída: ${sale?.code || id} (${sale?.client_name})`);
     notifyStorageChange();
+
+    // 5. Delete directly from Firestore collections so it never returns
+    try {
+      await deleteDoc(doc(db, 'sales', id));
+      for (const del of relatedDeliveries) {
+        await deleteDoc(doc(db, 'deliveries', del.id));
+      }
+    } catch (err) {
+      console.error('Erro ao excluir venda no Firestore:', err);
+    }
   }
 
   // Deliveries
   public getDeliveries(): Delivery[] {
-    return getItem<Delivery[]>(STORAGE_KEYS.DELIVERIES, []);
+    const deliveries = getItem<Delivery[]>(STORAGE_KEYS.DELIVERIES, []);
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+    return deliveries
+      .filter((d) => d && !d.is_deleted && !deletedIds.includes(d.id))
+      .sort((a, b) => {
+        const timeA = a.created_at || a.delivery_date || '';
+        const timeB = b.created_at || b.delivery_date || '';
+        if (timeB !== timeA) return timeB.localeCompare(timeA);
+        return (b.code || '').localeCompare(a.code || '');
+      });
   }
 
   public getNextDeliveryCode(): string {
@@ -867,6 +1045,12 @@ class StorageService {
 
     this.logAudit('Entrega', 'Entrega', delivery.id, `Entrega ${delivery.code} gerada para venda ${sale.code}`);
     notifyStorageChange();
+
+    try {
+      await setDoc(doc(db, 'deliveries', delivery.id), delivery);
+    } catch (err) {
+      console.error('Erro ao salvar entrega no Firestore:', err);
+    }
     return delivery;
   }
 
@@ -909,6 +1093,10 @@ class StorageService {
       this.logAudit('Criação', 'Entrega', delivery.id, `Nova entrega ${delivery.code} criada`);
     }
 
+    // Immediately persist and broadcast changes
+    setItem(STORAGE_KEYS.DELIVERIES, deliveries);
+    notifyStorageChange();
+
     await setDoc(doc(db, 'deliveries', delivery.id), delivery);
     return delivery;
   }
@@ -937,19 +1125,45 @@ class StorageService {
         `Entrega ${old.code} marcada como ${status}`
       );
       notifyStorageChange();
+
+      try {
+        await setDoc(doc(db, 'deliveries', id), deliveries[index]);
+      } catch (err) {
+        console.error('Erro ao atualizar status da entrega no Firestore:', err);
+      }
     }
   }
 
   public async deleteDelivery(id: string): Promise<void> {
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+    if (!deletedIds.includes(id)) {
+      deletedIds.push(id);
+      setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, deletedIds);
+    }
     const deliveries = this.getDeliveries().filter((d) => d.id !== id);
     setItem(STORAGE_KEYS.DELIVERIES, deliveries);
     this.logAudit('Exclusão', 'Entrega', id, `Entrega excluída ID: ${id}`);
     notifyStorageChange();
+
+    try {
+      await deleteDoc(doc(db, 'deliveries', id));
+    } catch (err) {
+      console.error('Erro ao excluir entrega no Firestore:', err);
+    }
   }
 
   // Expenses
   public getExpenses(): Expense[] {
-    return getItem<Expense[]>(STORAGE_KEYS.EXPENSES, []);
+    const expenses = getItem<Expense[]>(STORAGE_KEYS.EXPENSES, []);
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+    return expenses
+      .filter((e) => e && !e.is_deleted && !deletedIds.includes(e.id))
+      .sort((a, b) => {
+        const timeA = a.created_at || a.expense_date || '';
+        const timeB = b.created_at || b.expense_date || '';
+        if (timeB !== timeA) return timeB.localeCompare(timeA);
+        return (b.code || '').localeCompare(a.code || '');
+      });
   }
 
   public getNextExpenseCode(): string {
@@ -1032,16 +1246,37 @@ class StorageService {
       );
     }
 
+    // Clear deleted tracking if saving
+    const deletedExpIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+    if (deletedExpIds.includes(expense.id)) {
+      setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, deletedExpIds.filter(i => i !== expense.id));
+    }
+
+    // Immediately persist to localStorage and broadcast changes
+    setItem(STORAGE_KEYS.EXPENSES, expenses);
+    notifyStorageChange();
+
     await setDoc(doc(db, 'expenses', expense.id), expense);
     return expense;
   }
 
   public async deleteExpense(id: string): Promise<void> {
+    const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+    if (!deletedIds.includes(id)) {
+      deletedIds.push(id);
+      setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, deletedIds);
+    }
     const expense = this.getExpenses().find((e) => e.id === id);
     const expenses = this.getExpenses().filter((e) => e.id !== id);
     setItem(STORAGE_KEYS.EXPENSES, expenses);
     this.logAudit('Exclusão', 'Despesa', id, `Despesa excluída: ${expense?.code || id}`);
     notifyStorageChange();
+
+    try {
+      await deleteDoc(doc(db, 'expenses', id));
+    } catch (err) {
+      console.error('Erro ao excluir despesa no Firestore:', err);
+    }
   }
 
   // Payments & Contas a Receber
@@ -1049,7 +1284,7 @@ class StorageService {
     return getItem<PaymentRecord[]>(STORAGE_KEYS.PAYMENTS, []);
   }
 
-  public addPayment(record: PaymentRecord): void {
+  public async addPayment(record: PaymentRecord): Promise<void> {
     const payments = this.getPayments();
     payments.unshift(record);
     setItem(STORAGE_KEYS.PAYMENTS, payments);
@@ -1078,6 +1313,12 @@ class StorageService {
         record.id,
         `Recebimento de R$ ${record.amount.toFixed(2)} registrado para venda ${sale.code}. Saldo restante: R$ ${newPending.toFixed(2)}`
       );
+
+      try {
+        await setDoc(doc(db, 'sales', sale.id), sales[index]);
+      } catch (err) {
+        console.error('Erro ao atualizar venda no Firestore após pagamento:', err);
+      }
     }
     notifyStorageChange();
   }

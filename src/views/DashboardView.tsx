@@ -18,6 +18,8 @@ import {
   FileSpreadsheet,
   Printer,
   Award,
+  Trash2,
+  Edit2,
 } from 'lucide-react';
 import { AiInsightsPanel } from '../components/AiInsightsPanel';
 import { storage } from '../services/storage';
@@ -32,21 +34,27 @@ import {
 import { exportToExcel } from '../utils/excel';
 
 interface DashboardViewProps {
+  onNavigate?: (tab: string) => void;
   onOpenNewSale: () => void;
   onOpenQuickSale: () => void;
   onOpenNewExpense: () => void;
-  onNavigateToDeliveries: () => void;
-  onNavigateToReceivables: () => void;
-  onNavigateToCommissions: () => void;
+  onNavigateToDeliveries?: () => void;
+  onNavigateToReceivables?: () => void;
+  onNavigateToCommissions?: () => void;
+  onDeleteSale?: (sale: Sale) => void;
+  onEditSale?: (sale: Sale) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
+  onNavigate,
   onOpenNewSale,
   onOpenQuickSale,
   onOpenNewExpense,
   onNavigateToDeliveries,
   onNavigateToReceivables,
   onNavigateToCommissions,
+  onDeleteSale,
+  onEditSale,
 }) => {
   const [periodPreset, setPeriodPreset] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
   const [startDate, setStartDate] = useState('');
@@ -55,6 +63,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('');
   const [cityFilter, setCityFilter] = useState('');
+  const [dataVersion, setDataVersion] = useState(0);
+
+  React.useEffect(() => {
+    const unsubscribe = storage.subscribe(() => {
+      setDataVersion((v) => v + 1);
+    });
+    return unsubscribe;
+  }, []);
 
   const sales = storage.getSales();
   const expenses = storage.getExpenses();
@@ -98,7 +114,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       if (cityFilter && !s.city.toLowerCase().includes(cityFilter.toLowerCase())) return false;
       return true;
     });
-  }, [sales, startDate, endDate, driverFilter, paymentMethodFilter, paymentStatusFilter, cityFilter]);
+  }, [sales, startDate, endDate, driverFilter, paymentMethodFilter, paymentStatusFilter, cityFilter, dataVersion]);
 
   // Filtered expenses
   const filteredExpenses = useMemo(() => {
@@ -109,7 +125,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       if (driverFilter && e.driver_id !== driverFilter) return false;
       return true;
     });
-  }, [expenses, startDate, endDate, driverFilter]);
+  }, [expenses, startDate, endDate, driverFilter, dataVersion]);
 
   // Filtered deliveries
   const filteredDeliveries = useMemo(() => {
@@ -120,7 +136,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       if (driverFilter && d.driver_id !== driverFilter) return false;
       return true;
     });
-  }, [deliveries, startDate, endDate, driverFilter]);
+  }, [deliveries, startDate, endDate, driverFilter, dataVersion]);
 
   // Calculations
   const todayStr = getTodayDateString();
@@ -623,17 +639,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Recent Sales List */}
       <div className="p-5 bg-white rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
             <h3 className="text-sm font-bold text-slate-900">Últimas Vendas Cadastradas</h3>
             <p className="text-xs text-slate-500">Exibindo as vendas mais recentes do sistema</p>
           </div>
-          <button
-            onClick={onOpenNewSale}
-            className="text-xs font-bold text-sky-600 hover:text-sky-800"
-          >
-            + Adicionar Venda
-          </button>
+          <div className="flex items-center gap-2">
+            {onNavigate && (
+              <button
+                onClick={() => onNavigate('sales')}
+                className="text-xs font-semibold text-slate-600 hover:text-sky-700 px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Ver todas as vendas →
+              </button>
+            )}
+            <button
+              onClick={onOpenNewSale}
+              className="text-xs font-bold text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              + Adicionar Venda
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -649,36 +675,71 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <th className="py-2.5 px-3 text-right">Total</th>
                 <th className="py-2.5 px-3">Pagamento</th>
                 <th className="py-2.5 px-3 text-center">Situação</th>
+                {(onDeleteSale || onEditSale) && (
+                  <th className="py-2.5 px-3 text-right">Ações</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredSales.slice(0, 6).map((sale) => (
-                <tr key={sale.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-2.5 px-3 font-bold text-sky-700">{sale.code}</td>
-                  <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">{formatDate(sale.sale_date)}</td>
-                  <td className="py-2.5 px-3 font-bold text-slate-900">{sale.client_name}</td>
-                  <td className="py-2.5 px-3 text-slate-600">{sale.city}</td>
-                  <td className="py-2.5 px-3 text-slate-600">{sale.driver_name || 'A definir'}</td>
-                  <td className="py-2.5 px-3 text-center font-bold text-slate-800">{sale.quantity} un</td>
-                  <td className="py-2.5 px-3 text-right font-black text-slate-900">
-                    {formatCurrency(sale.total_amount)}
-                  </td>
-                  <td className="py-2.5 px-3 text-slate-600">{sale.payment_method}</td>
-                  <td className="py-2.5 px-3 text-center">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                        sale.payment_status === 'Pago'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : sale.payment_status === 'Pendente'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-rose-100 text-rose-800'
-                      }`}
-                    >
-                      {sale.payment_status}
-                    </span>
+              {filteredSales.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
+                    Nenhuma venda cadastrada no momento.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredSales.slice(0, 8).map((sale) => (
+                  <tr key={sale.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-2.5 px-3 font-bold text-sky-700">{sale.code}</td>
+                    <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">{formatDate(sale.sale_date)}</td>
+                    <td className="py-2.5 px-3 font-bold text-slate-900">{sale.client_name}</td>
+                    <td className="py-2.5 px-3 text-slate-600">{sale.city}</td>
+                    <td className="py-2.5 px-3 text-slate-600">{sale.driver_name || 'A definir'}</td>
+                    <td className="py-2.5 px-3 text-center font-bold text-slate-800">{sale.quantity} un</td>
+                    <td className="py-2.5 px-3 text-right font-black text-slate-900">
+                      {formatCurrency(sale.total_amount)}
+                    </td>
+                    <td className="py-2.5 px-3 text-slate-600">{sale.payment_method}</td>
+                    <td className="py-2.5 px-3 text-center">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                          sale.payment_status === 'Pago'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : sale.payment_status === 'Pendente'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {sale.payment_status}
+                      </span>
+                    </td>
+                    {(onDeleteSale || onEditSale) && (
+                      <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
+                          {onEditSale && (
+                            <button
+                              onClick={() => onEditSale(sale)}
+                              className="p-1 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded transition-colors cursor-pointer"
+                              title="Editar Venda"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {onDeleteSale && (
+                            <button
+                              onClick={() => onDeleteSale(sale)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                              title="Excluir Venda"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

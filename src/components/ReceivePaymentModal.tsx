@@ -8,7 +8,7 @@ interface ReceivePaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   sale: Sale | null;
-  onPaymentRecorded: () => void;
+  onPaymentRecorded?: () => void;
 }
 
 export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
@@ -72,8 +72,10 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
       created_at: new Date().toISOString(),
     });
 
-    onPaymentRecorded();
     onClose();
+    if (onPaymentRecorded) {
+      onPaymentRecorded();
+    }
   };
 
   return (

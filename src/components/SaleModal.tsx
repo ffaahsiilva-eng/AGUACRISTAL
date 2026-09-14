@@ -9,15 +9,18 @@ interface SaleModalProps {
   isOpen: boolean;
   onClose: () => void;
   saleToEdit?: Sale | null;
-  onSaved: (sale: Sale) => void;
+  sale?: Sale | null;
+  onSaved?: (sale: Sale) => void;
 }
 
 export const SaleModal: React.FC<SaleModalProps> = ({
   isOpen,
   onClose,
   saleToEdit,
+  sale,
   onSaved,
 }) => {
+  const activeSale = saleToEdit || sale || null;
   const clients = storage.getClients();
   const drivers = storage.getDrivers();
   const vehicles = storage.getVehicles();
@@ -55,31 +58,31 @@ export const SaleModal: React.FC<SaleModalProps> = ({
 
   // Reset or populate form
   useEffect(() => {
-    if (saleToEdit) {
-      setSaleDate(saleToEdit.sale_date);
-      setSelectedClientId(saleToEdit.client_id || '');
-      setClientName(saleToEdit.client_name);
-      setClientDocument(saleToEdit.client_document || '');
-      setPhone(saleToEdit.phone || '');
-      setAddress(saleToEdit.address || '');
-      setNumber(saleToEdit.number || '');
-      setComplement(saleToEdit.complement || '');
-      setNeighborhood(saleToEdit.neighborhood || '');
-      setCity(saleToEdit.city || 'Balneário Camboriú');
-      setState(saleToEdit.state || 'SC');
-      setDriverId(saleToEdit.driver_id || '');
-      setDriverName(saleToEdit.driver_name || '');
-      setVehicleId(saleToEdit.vehicle_id || '');
-      setVehicleName(saleToEdit.vehicle_name || '');
-      setSaleStatus(saleToEdit.sale_status || 'Confirmada');
-      setQuantity(saleToEdit.quantity);
-      setUnitPrice(formatInitialCurrency(saleToEdit.unit_price));
-      setPaymentMethod(saleToEdit.payment_method);
-      setPaymentStatus(saleToEdit.payment_status);
-      setDueDate(saleToEdit.due_date || saleToEdit.sale_date);
-      setAmountPaid(saleToEdit.amount_paid);
-      setCommissionRate(saleToEdit.commission_rate);
-      setObservation(saleToEdit.observation || '');
+    if (activeSale) {
+      setSaleDate(activeSale.sale_date);
+      setSelectedClientId(activeSale.client_id || '');
+      setClientName(activeSale.client_name);
+      setClientDocument(activeSale.client_document || '');
+      setPhone(activeSale.phone || '');
+      setAddress(activeSale.address || '');
+      setNumber(activeSale.number || '');
+      setComplement(activeSale.complement || '');
+      setNeighborhood(activeSale.neighborhood || '');
+      setCity(activeSale.city || 'Balneário Camboriú');
+      setState(activeSale.state || 'SC');
+      setDriverId(activeSale.driver_id || '');
+      setDriverName(activeSale.driver_name || '');
+      setVehicleId(activeSale.vehicle_id || '');
+      setVehicleName(activeSale.vehicle_name || '');
+      setSaleStatus(activeSale.sale_status || 'Confirmada');
+      setQuantity(activeSale.quantity);
+      setUnitPrice(formatInitialCurrency(activeSale.unit_price));
+      setPaymentMethod(activeSale.payment_method);
+      setPaymentStatus(activeSale.payment_status);
+      setDueDate(activeSale.due_date || activeSale.sale_date);
+      setAmountPaid(activeSale.amount_paid);
+      setCommissionRate(activeSale.commission_rate);
+      setObservation(activeSale.observation || '');
       setCreateDelivery(false); // already has delivery or editing
     } else {
       setSaleDate(getTodayDateString());
@@ -111,7 +114,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
       setCreateDelivery(true);
     }
     setErrors({});
-  }, [saleToEdit, isOpen]);
+  }, [activeSale, isOpen]);
 
   // Handle client selection
   const handleClientSelect = (cId: string) => {
@@ -163,8 +166,10 @@ export const SaleModal: React.FC<SaleModalProps> = ({
   const numCommissionRate = Number(commissionRate) || 0;
   const commissionAmount = Math.round(totalAmount * (numCommissionRate / 100) * 100) / 100;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e?.preventDefault) {
+      e.preventDefault();
+    }
     const newErrors: Record<string, string> = {};
 
     if (!clientName.trim()) {
@@ -182,52 +187,60 @@ export const SaleModal: React.FC<SaleModalProps> = ({
       return;
     }
 
-    const saved = await storage.saveSale(
-      {
-        id: saleToEdit?.id,
-        code: saleToEdit?.code,
-        sale_date: saleDate,
-        client_id: selectedClientId || undefined,
-        client_name: clientName.trim(),
-        client_document: clientDocument.trim(),
-        phone: phone.trim(),
-        address: address.trim(),
-        number: number.trim(),
-        complement: complement.trim(),
-        neighborhood: neighborhood.trim(),
-        city: city.trim(),
-        state: state.trim(),
-        driver_id: driverId || undefined,
-        driver_name: driverName || 'A definir',
-        vehicle_id: vehicleId || undefined,
-        vehicle_name: vehicleName || undefined,
-        quantity: numQuantity,
-        unit_price: numUnitPrice,
-        total_amount: totalAmount,
-        payment_method: paymentMethod,
-        payment_status: paymentStatus,
-        sale_status: saleStatus,
-        due_date: dueDate || saleDate,
-        amount_paid:
-          paymentStatus === 'Pago'
-            ? totalAmount
-            : paymentStatus === 'Pendente'
-            ? 0
-            : Number(amountPaid) || 0,
-        pending_amount:
-          paymentStatus === 'Pago'
-            ? 0
-            : paymentStatus === 'Pendente'
-            ? totalAmount
-            : Math.max(0, totalAmount - (Number(amountPaid) || 0)),
-        commission_rate: numCommissionRate,
-        commission_amount: commissionAmount,
-        observation: observation.trim(),
-      },
-      createDelivery
-    );
+    const payload = {
+      id: activeSale?.id,
+      code: activeSale?.code,
+      sale_date: saleDate,
+      client_id: selectedClientId || undefined,
+      client_name: clientName.trim(),
+      client_document: clientDocument.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      number: number.trim(),
+      complement: complement.trim(),
+      neighborhood: neighborhood.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      driver_id: driverId || undefined,
+      driver_name: driverName || 'A definir',
+      vehicle_id: vehicleId || undefined,
+      vehicle_name: vehicleName || undefined,
+      quantity: numQuantity,
+      unit_price: numUnitPrice,
+      total_amount: totalAmount,
+      payment_method: paymentMethod,
+      payment_status: paymentStatus,
+      sale_status: saleStatus,
+      due_date: dueDate || saleDate,
+      amount_paid:
+        paymentStatus === 'Pago'
+          ? totalAmount
+          : paymentStatus === 'Pendente'
+          ? 0
+          : Number(amountPaid) || 0,
+      pending_amount:
+        paymentStatus === 'Pago'
+          ? 0
+          : paymentStatus === 'Pendente'
+          ? totalAmount
+          : Math.max(0, totalAmount - (Number(amountPaid) || 0)),
+      commission_rate: numCommissionRate,
+      commission_amount: commissionAmount,
+      observation: observation.trim(),
+    };
 
-    onSaved(saved);
+    const shouldCreateDelivery = createDelivery;
+
+    // Salva a venda imediatamente no armazenamento local e inicia a sincronização
+    storage.saveSale(payload, shouldCreateDelivery).then((saved) => {
+      if (onSaved) {
+        onSaved(saved);
+      }
+    }).catch((err) => {
+      console.error('Erro ao salvar venda:', err);
+    });
+
+    // Fecha a janela imediatamente do meio da tela
     onClose();
   };
 
@@ -263,7 +276,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900">
-                {saleToEdit ? `Editar Venda ${saleToEdit.code}` : 'Nova Venda'}
+                {activeSale ? `Editar Venda ${activeSale.code}` : 'Nova Venda'}
               </h2>
               <p className="text-xs text-slate-500">
                 Preencha os dados da venda. Os cálculos e comissões são automáticos.
@@ -654,14 +667,14 @@ export const SaleModal: React.FC<SaleModalProps> = ({
               />
             </div>
 
-            {!saleToEdit && (
+            {!activeSale && (
               <div className="mt-4 flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                 <input
                   type="checkbox"
                   id="createDeliveryCheck"
                   checked={createDelivery}
                   onChange={(e) => setCreateDelivery(e.target.checked)}
-                  className="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500"
+                  className="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
                 />
                 <label htmlFor="createDeliveryCheck" className="text-xs text-slate-700 font-medium cursor-pointer flex items-center gap-1.5">
                   <Truck className="w-4 h-4 text-slate-500" />
@@ -677,17 +690,17 @@ export const SaleModal: React.FC<SaleModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-xl transition-colors"
+            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
           >
             Cancelar
           </button>
           <button
             type="button"
             onClick={handleSubmit}
-            className="flex items-center gap-1.5 px-6 py-2.5 text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 active:scale-95 rounded-xl shadow-md shadow-sky-600/20 transition-all"
+            className="flex items-center gap-1.5 px-6 py-2.5 text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 active:scale-95 rounded-xl shadow-md shadow-sky-600/20 transition-all cursor-pointer"
           >
             <Check className="w-4 h-4" />
-            <span>{saleToEdit ? 'Salvar Alterações' : 'Concluir Venda'}</span>
+            <span>{activeSale ? 'Salvar Alterações' : 'Concluir Venda'}</span>
           </button>
         </div>
       </div>

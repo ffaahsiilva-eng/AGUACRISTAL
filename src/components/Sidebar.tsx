@@ -180,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {!isCollapsed && item.badge !== undefined && item.badge > 0 && (
                 <span
                   className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full text-slate-950 ${
-                    item.badgeColor || 'bg-sky-400'
+                    ('badgeColor' in item && typeof (item as any).badgeColor === 'string') ? (item as any).badgeColor : 'bg-sky-400'
                   }`}
                 >
                   {item.badge}

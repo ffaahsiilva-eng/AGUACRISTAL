@@ -832,7 +832,7 @@ export const SalesView: React.FC<SalesViewProps> = ({
                         </span>
                         
                         <div className="flex gap-2">
-                          <button onClick={() => onPrintSale(sale)} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 bg-white">
+                          <button onClick={() => handlePrintIndividualReceipt(sale)} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 bg-white">
                             <Printer className="w-4 h-4" />
                           </button>
                           <button onClick={() => { if (!isCancelled) onEditSale(sale); }} disabled={isCancelled} className="p-1.5 rounded-lg border border-slate-200 text-sky-600 bg-white">

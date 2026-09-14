@@ -125,12 +125,12 @@ class AuthService {
       
       if (!userDoc.exists()) {
         console.warn('User profile missing in Firestore. Attempting to auto-create...');
-        const newUser = {
+        const newUser: User = {
           id: firebaseUser.uid,
           name: firebaseUser.displayName || email.split('@')[0],
           email: email,
           phone: '',
-          role: 'ADMINISTRADOR', // Default to admin for recovery, or operator. Let's make the first user admin.
+          role: 'ADMINISTRADOR',
           status: 'Ativo',
           email_verified: firebaseUser.emailVerified,
           created_at: new Date().toISOString(),

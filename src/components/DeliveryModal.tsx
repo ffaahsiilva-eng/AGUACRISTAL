@@ -8,7 +8,7 @@ interface DeliveryModalProps {
   isOpen: boolean;
   onClose: () => void;
   delivery?: Delivery | null;
-  onSaved: (del: Delivery) => void;
+  onSaved?: (del: Delivery) => void;
 }
 
 export const DeliveryModal: React.FC<DeliveryModalProps> = ({
@@ -79,9 +79,11 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
     setVehicleName(v ? `${v.model} (${v.plate})` : '');
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const updated = await storage.saveDelivery({
+  const handleSubmit = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e?.preventDefault) {
+      e.preventDefault();
+    }
+    const payload = {
       ...delivery,
       status,
       driver_id: driverId || undefined,
@@ -91,8 +93,17 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
       departure_time: departureTime || undefined,
       delivery_time: deliveryTime || undefined,
       observation,
+    };
+
+    // Salva a entrega imediatamente no armazenamento local e inicia a sincronização
+    storage.saveDelivery(payload).then((updated) => {
+      if (onSaved) {
+        onSaved(updated);
+      }
+    }).catch((err) => {
+      console.error('Erro ao salvar entrega:', err);
     });
-    onSaved(updated);
+
     onClose();
   };
 

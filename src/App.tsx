@@ -540,6 +540,8 @@ export function App() {
                 onOpenNewSale={() => handlePermittedNewSale()}
                 onOpenQuickSale={() => handlePermittedQuickSale()}
                 onOpenNewExpense={() => handlePermittedNewExpense()}
+                onDeleteSale={handleDeleteSale}
+                onEditSale={handleEditSale}
               />
             )}
 
@@ -645,6 +647,11 @@ export function App() {
             setEditingSale(null);
           }}
           sale={editingSale}
+          saleToEdit={editingSale}
+          onSaved={() => {
+            setIsSaleModalOpen(false);
+            setEditingSale(null);
+          }}
         />
       )}
 
@@ -663,6 +670,10 @@ export function App() {
             setEditingDelivery(null);
           }}
           delivery={editingDelivery}
+          onSaved={() => {
+            setIsDeliveryModalOpen(false);
+            setEditingDelivery(null);
+          }}
         />
       )}
 
@@ -674,7 +685,12 @@ export function App() {
             setEditingExpense(null);
           }}
           expense={editingExpense}
+          expenseToEdit={editingExpense}
           initialIsFuel={isExpenseFuelMode}
+          onSaved={() => {
+            setIsExpenseModalOpen(false);
+            setEditingExpense(null);
+          }}
         />
       )}
 
@@ -686,6 +702,10 @@ export function App() {
             setSelectedSaleForPayment(null);
           }}
           sale={selectedSaleForPayment}
+          onPaymentRecorded={() => {
+            setIsReceivePaymentModalOpen(false);
+            setSelectedSaleForPayment(null);
+          }}
         />
       )}
 

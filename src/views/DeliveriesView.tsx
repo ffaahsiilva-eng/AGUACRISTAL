@@ -230,7 +230,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
                     <span className={`inline-block px-2 py-1 rounded text-[10px] font-bold ${del.status === 'Entregue' ? 'bg-emerald-100 text-emerald-800' : del.status === 'Saiu para entrega' ? 'bg-sky-100 text-sky-800' : del.status === 'Aguardando' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`}>
                       {del.status}
                     </span>
-                    <button onClick={() => onEditDelivery(del)} className="p-2 rounded-lg border border-slate-200 text-sky-600 bg-white">
+                    <button onClick={() => onOpenDeliveryModal(del)} className="p-2 rounded-lg border border-slate-200 text-sky-600 bg-white">
                       Editar
                     </button>
                   </div>
