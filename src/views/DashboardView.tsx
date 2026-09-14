@@ -5,7 +5,6 @@ import {
   TrendingDown,
   Truck,
   ShoppingCart,
-  CheckCircle2,
   Clock,
   Zap,
   Calendar,
@@ -145,7 +144,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const totalPeriodSales = filteredSales.reduce((acc, curr) => acc + curr.total_amount, 0);
   const totalQuantitySold = filteredSales.reduce((acc, curr) => acc + curr.quantity, 0);
-  const totalReceived = filteredSales.reduce((acc, curr) => acc + curr.amount_paid, 0);
   const totalReceivable = filteredSales.reduce((acc, curr) => acc + curr.pending_amount, 0);
   const totalCommission = filteredSales.reduce((acc, curr) => acc + curr.commission_amount, 0);
 
@@ -409,7 +407,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Primary KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
         {/* Card 1: Total Vendas Período */}
         <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-sky-300 transition-colors">
           <div className="flex items-center justify-between">
@@ -447,25 +445,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        {/* Card 3: Total Recebido */}
-        <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-emerald-300 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Total Recebido (Caixa)
-            </span>
-            <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-xl font-black text-emerald-700 mt-2">
-            {formatCurrency(totalReceived)}
-          </p>
-          <p className="mt-2 text-xs text-emerald-600 font-semibold">
-            {totalPeriodSales > 0 ? `${((totalReceived / totalPeriodSales) * 100).toFixed(1)}% liquidado` : '0%'}
-          </p>
-        </div>
-
-        {/* Card 5: Despesas Operacionais */}
+        {/* Card 3: Despesas Operacionais */}
         <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-rose-300 transition-colors">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">

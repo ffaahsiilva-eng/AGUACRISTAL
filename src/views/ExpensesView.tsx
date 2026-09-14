@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   TrendingDown,
   Plus,
@@ -27,6 +27,15 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   onEditExpense,
   onDeleteExpense,
 }) => {
+  const [dataVersion, setDataVersion] = useState(0);
+
+  useEffect(() => {
+    const unsubscribe = storage.subscribe(() => {
+      setDataVersion((v) => v + 1);
+    });
+    return unsubscribe;
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'all' | 'fuel' | 'operational'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -68,6 +77,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     });
   }, [
     expenses,
+    dataVersion,
     activeTab,
     startDate,
     endDate,

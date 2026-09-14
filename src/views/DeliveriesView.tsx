@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Truck,
   Plus,
@@ -28,6 +28,15 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
   onPrintRoute,
   onDeleteDelivery,
 }) => {
+  const [dataVersion, setDataVersion] = useState(0);
+
+  useEffect(() => {
+    const unsubscribe = storage.subscribe(() => {
+      setDataVersion((v) => v + 1);
+    });
+    return unsubscribe;
+  }, []);
+
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDriver, setSelectedDriver] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -56,7 +65,7 @@ export const DeliveriesView: React.FC<DeliveriesViewProps> = ({
       }
       return true;
     });
-  }, [deliveries, selectedStatus, selectedDriver, selectedDate, searchTerm]);
+  }, [deliveries, dataVersion, selectedStatus, selectedDriver, selectedDate, searchTerm]);
 
   // Statistics
   const totalCount = deliveries.filter((d) => !d.is_deleted).length;

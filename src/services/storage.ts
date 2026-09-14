@@ -219,10 +219,17 @@ class StorageService {
       const items: Expense[] = [];
       snapshot.forEach((docSnap) => {
         const item = docSnap.data() as Expense;
-        if (deletedIds.includes(item.id) || item.is_deleted) {
+        const isDeleted =
+          !item ||
+          item.is_deleted === true ||
+          deletedIds.includes(docSnap.id) ||
+          (item.id && deletedIds.includes(item.id)) ||
+          (item.code && deletedIds.includes(item.code));
+
+        if (isDeleted) {
           deleteDoc(docSnap.ref).catch(() => {});
         } else {
-          items.push(item);
+          items.push({ ...item, id: item.id || docSnap.id });
         }
       });
       items.sort((a, b) => {
@@ -233,6 +240,45 @@ class StorageService {
       });
       setItem(STORAGE_KEYS.EXPENSES, items);
       notifyStorageChange();
+    });
+
+    // Sync cloud deleted records so deletions persist across devices and reloads
+    onSnapshot(doc(db, 'settings', 'deleted_records'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        let changed = false;
+        if (Array.isArray(data?.deleted_expense_ids) && data.deleted_expense_ids.length > 0) {
+          const localDeleted = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+          const merged = Array.from(new Set([...localDeleted, ...data.deleted_expense_ids]));
+          if (merged.length !== localDeleted.length) {
+            setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, merged);
+            changed = true;
+          }
+          const localExpenses = getItem<Expense[]>(STORAGE_KEYS.EXPENSES, []);
+          const cleaned = localExpenses.filter(e => e && !merged.includes(e.id) && (!e.code || !merged.includes(e.code)));
+          if (cleaned.length !== localExpenses.length) {
+            setItem(STORAGE_KEYS.EXPENSES, cleaned);
+            changed = true;
+          }
+        }
+        if (Array.isArray(data?.deleted_sales_ids) && data.deleted_sales_ids.length > 0) {
+          const localDeleted = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
+          const merged = Array.from(new Set([...localDeleted, ...data.deleted_sales_ids]));
+          if (merged.length !== localDeleted.length) {
+            setItem(STORAGE_KEYS.DELETED_SALES_IDS, merged);
+            changed = true;
+          }
+          const localSales = getItem<Sale[]>(STORAGE_KEYS.SALES, []);
+          const cleaned = localSales.filter(s => s && !merged.includes(s.id) && (!s.code || !merged.includes(s.code)));
+          if (cleaned.length !== localSales.length) {
+            setItem(STORAGE_KEYS.SALES, cleaned);
+            changed = true;
+          }
+        }
+        if (changed) {
+          notifyStorageChange();
+        }
+      }
     });
 
     // Now start listeners
@@ -301,6 +347,10 @@ class StorageService {
 
     if (!existingSales || currentVersion !== DATA_VERSION || hasOldGenericData) {
       const initial = generateInitialData();
+      const deletedExpenseIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+      const deletedSalesIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
+      const deletedDeliveryIds = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+
       setItem(STORAGE_KEYS.USERS, initial.users);
       setItem(STORAGE_KEYS.CURRENT_USER, initial.currentUser);
       setItem(STORAGE_KEYS.SETTINGS, initial.settings);
@@ -308,9 +358,18 @@ class StorageService {
       setItem(STORAGE_KEYS.DRIVERS, initial.drivers);
       setItem(STORAGE_KEYS.VEHICLES, initial.vehicles);
       setItem(STORAGE_KEYS.CLIENTS, initial.clients);
-      setItem(STORAGE_KEYS.SALES, initial.sales);
-      setItem(STORAGE_KEYS.DELIVERIES, initial.deliveries);
-      setItem(STORAGE_KEYS.EXPENSES, initial.expenses);
+      setItem(
+        STORAGE_KEYS.SALES,
+        initial.sales.filter((s) => !deletedSalesIds.includes(s.id) && (!s.code || !deletedSalesIds.includes(s.code)))
+      );
+      setItem(
+        STORAGE_KEYS.DELIVERIES,
+        initial.deliveries.filter((d) => !deletedDeliveryIds.includes(d.id) && (!d.code || !deletedDeliveryIds.includes(d.code)))
+      );
+      setItem(
+        STORAGE_KEYS.EXPENSES,
+        initial.expenses.filter((e) => !deletedExpenseIds.includes(e.id) && (!e.code || !deletedExpenseIds.includes(e.code)))
+      );
       setItem(STORAGE_KEYS.PAYMENTS, initial.payments);
       setItem(STORAGE_KEYS.AUDIT_LOGS, initial.auditLogs);
       localStorage.setItem("acs_data_version", DATA_VERSION);
@@ -1157,7 +1216,7 @@ class StorageService {
     const expenses = getItem<Expense[]>(STORAGE_KEYS.EXPENSES, []);
     const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
     return expenses
-      .filter((e) => e && !e.is_deleted && !deletedIds.includes(e.id))
+      .filter((e) => e && !e.is_deleted && !deletedIds.includes(e.id) && (!e.code || !deletedIds.includes(e.code)))
       .sort((a, b) => {
         const timeA = a.created_at || a.expense_date || '';
         const timeB = b.created_at || b.expense_date || '';
@@ -1261,19 +1320,39 @@ class StorageService {
   }
 
   public async deleteExpense(id: string): Promise<void> {
+    const rawExpenses = getItem<Expense[]>(STORAGE_KEYS.EXPENSES, []);
+    const expense = rawExpenses.find((e) => e && (e.id === id || e.code === id));
+
     const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
     if (!deletedIds.includes(id)) {
       deletedIds.push(id);
-      setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, deletedIds);
     }
-    const expense = this.getExpenses().find((e) => e.id === id);
-    const expenses = this.getExpenses().filter((e) => e.id !== id);
+    if (expense?.id && !deletedIds.includes(expense.id)) {
+      deletedIds.push(expense.id);
+    }
+    if (expense?.code && !deletedIds.includes(expense.code)) {
+      deletedIds.push(expense.code);
+    }
+    setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, deletedIds);
+
+    const expenses = rawExpenses.filter(
+      (e) => e && e.id !== id && e.code !== id && (expense ? e.id !== expense.id && e.code !== expense.code : true)
+    );
     setItem(STORAGE_KEYS.EXPENSES, expenses);
     this.logAudit('Exclusão', 'Despesa', id, `Despesa excluída: ${expense?.code || id}`);
     notifyStorageChange();
 
     try {
       await deleteDoc(doc(db, 'expenses', id));
+      if (expense?.id && expense.id !== id) {
+        await deleteDoc(doc(db, 'expenses', expense.id));
+      }
+      // Also register in cloud deleted_records document so all sessions/reloads ignore it
+      const deletedDocRef = doc(db, 'settings', 'deleted_records');
+      const delSnap = await getDoc(deletedDocRef);
+      const existingDel = delSnap.exists() ? (delSnap.data()?.deleted_expense_ids || []) : [];
+      const newDel = Array.from(new Set([...existingDel, ...deletedIds]));
+      await setDoc(deletedDocRef, { deleted_expense_ids: newDel }, { merge: true });
     } catch (err) {
       console.error('Erro ao excluir despesa no Firestore:', err);
     }
