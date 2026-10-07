@@ -131,6 +131,7 @@ export interface Driver {
   cnh_category: string;
   cnh_expiry?: string;
   status: 'Ativo' | 'Inativo';
+  commission_rate_default?: number;
   observation?: string;
   is_deleted?: boolean;
   created_at: string;
@@ -144,6 +145,9 @@ export interface Vehicle {
   model: string;
   brand: string;
   year?: number;
+  capacity_gallons?: number;
+  driver_id?: string;
+  driver_name?: string;
   status: 'Ativo' | 'Em Manutenção' | 'Inativo';
   observation?: string;
   is_deleted?: boolean;

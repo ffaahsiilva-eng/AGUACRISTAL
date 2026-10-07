@@ -96,81 +96,22 @@ function generateInitialData() {
 
 // Storage API Class
 class StorageService {
+  private isSyncStarted = false;
+
   constructor() {
     this.init();
+    // Start syncing with Firestore immediately in background
+    this.startFirestoreSync().catch((err) => {
+      console.warn('Initial Firestore sync attempt:', err);
+    });
   }
 
-  
-  
   public async startFirestoreSync() {
-    console.log('Starting Firestore sync...');
-    const localUsers = this.getUsers();
-    const localClients = this.getClients();
-    const localDrivers = this.getDrivers();
-    const localSettings = this.getSettings();
-    const localCompanyInfo = this.getCompanyInfo();
+    if (this.isSyncStarted) return;
+    this.isSyncStarted = true;
+    console.log('Starting Firestore realtime sync...');
 
-    // Migrate Users if not in Firestore
-    const usersSnap = await getDocs(collection(db, 'users'));
-    if (usersSnap.empty && localUsers.length > 0) {
-      const batch = writeBatch(db);
-      localUsers.forEach(u => batch.set(doc(db, 'users', u.id), u));
-      await batch.commit();
-    }
-
-    // Migrate Clients
-    const clientsSnap = await getDocs(collection(db, 'clients'));
-    if (clientsSnap.empty && localClients.length > 0) {
-      const batch = writeBatch(db);
-      localClients.forEach(c => batch.set(doc(db, 'clients', c.id), c));
-      await batch.commit();
-    }
-
-    // Migrate Drivers
-    const driversSnap = await getDocs(collection(db, 'drivers'));
-    if (driversSnap.empty && localDrivers.length > 0) {
-      const batch = writeBatch(db);
-      localDrivers.forEach(d => batch.set(doc(db, 'drivers', d.id), d));
-      await batch.commit();
-    }
-
-    // Migrate Settings
-    const settingsSnap = await getDocs(collection(db, 'settings'));
-    const isFirstTimeInit = settingsSnap.empty;
-    if (isFirstTimeInit) {
-      await setDoc(doc(db, 'settings', 'company'), localSettings);
-      await setDoc(doc(db, 'settings', 'company_info'), localCompanyInfo);
-      await setDoc(doc(db, 'settings', 'database_initialized'), {
-        initialized: true,
-        initialized_at: new Date().toISOString(),
-      });
-    }
-
-    // Migrate Sales ONLY if brand-new database initialization
-    const salesSnap = await getDocs(collection(db, 'sales'));
-    if (isFirstTimeInit && salesSnap.empty && this.getSales().length > 0) {
-      const batch = writeBatch(db);
-      this.getSales().forEach(s => batch.set(doc(db, 'sales', s.id), s));
-      await batch.commit();
-    }
-
-    // Migrate Deliveries ONLY if brand-new database initialization
-    const deliveriesSnap = await getDocs(collection(db, 'deliveries'));
-    if (isFirstTimeInit && deliveriesSnap.empty && this.getDeliveries().length > 0) {
-      const batch = writeBatch(db);
-      this.getDeliveries().forEach(d => batch.set(doc(db, 'deliveries', d.id), d));
-      await batch.commit();
-    }
-
-    // Migrate Expenses ONLY if brand-new database initialization
-    const expensesSnap = await getDocs(collection(db, 'expenses'));
-    if (isFirstTimeInit && expensesSnap.empty && this.getExpenses().length > 0) {
-      const batch = writeBatch(db);
-      this.getExpenses().forEach(e => batch.set(doc(db, 'expenses', e.id), e));
-      await batch.commit();
-    }
-
-    // Listeners for Sales, Deliveries, Expenses with deleted IDs safeguard
+    // Immediate realtime listeners without waiting for sequential blocking queries
     onSnapshot(collection(db, 'sales'), (snapshot) => {
       const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
       const items: Sale[] = [];
@@ -281,12 +222,14 @@ class StorageService {
       }
     });
 
-    // Now start listeners
+    // Sync users, clients, drivers, settings
     onSnapshot(collection(db, 'users'), (snapshot) => {
       const items: any[] = [];
       snapshot.forEach(doc => items.push(doc.data()));
-      setItem(STORAGE_KEYS.USERS, items);
-      notifyStorageChange();
+      if (items.length > 0) {
+        setItem(STORAGE_KEYS.USERS, items);
+        notifyStorageChange();
+      }
     });
 
     onSnapshot(collection(db, 'clients'), (snapshot) => {
@@ -300,8 +243,10 @@ class StorageService {
           items.push(item);
         }
       });
-      setItem(STORAGE_KEYS.CLIENTS, items);
-      notifyStorageChange();
+      if (items.length > 0 || !snapshot.empty) {
+        setItem(STORAGE_KEYS.CLIENTS, items);
+        notifyStorageChange();
+      }
     });
 
     onSnapshot(collection(db, 'drivers'), (snapshot) => {
@@ -315,8 +260,10 @@ class StorageService {
           items.push(item);
         }
       });
-      setItem(STORAGE_KEYS.DRIVERS, items);
-      notifyStorageChange();
+      if (items.length > 0 || !snapshot.empty) {
+        setItem(STORAGE_KEYS.DRIVERS, items);
+        notifyStorageChange();
+      }
     });
 
     onSnapshot(doc(db, 'settings', 'company_info'), (docSnap) => {
@@ -335,7 +282,7 @@ class StorageService {
   }
 
   public init() {
-    const DATA_VERSION = "v_real_data_imperatriz_2026_08";
+    const DATA_VERSION = "v_real_data_imperatriz_2026_10";
     const currentVersion = localStorage.getItem("acs_data_version");
     const existingSales = localStorage.getItem(STORAGE_KEYS.SALES);
     const hasOldGenericData =

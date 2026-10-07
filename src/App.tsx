@@ -56,7 +56,19 @@ export function App() {
               storage.startFirestoreSync(); // Start syncing other data
             }
           } else {
-            setCurrentUser(null);
+            // Auto-provision profile for authenticated Google/Email user
+            const fallbackUser: User = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Usuário'),
+              email: firebaseUser.email || '',
+              role: 'ADMINISTRADOR',
+              status: 'Ativo',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            setCurrentUser(fallbackUser);
+            storage.setCurrentUser(fallbackUser);
+            storage.startFirestoreSync();
           }
         } catch (e) {
           console.error("Error fetching user profile:", e);
@@ -410,6 +422,8 @@ export function App() {
   // Auth Handlers
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
+    storage.setCurrentUser(user);
+    storage.startFirestoreSync();
     setSessionExpiredNotice(false);
     setActiveTab('overview');
   };
