@@ -5,7 +5,7 @@ import { GoogleGenAI, Type, Schema } from '@google/genai';
 
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 const fetchWithTimeout = async (promise, ms = 8000) => {
   let timeoutId;
