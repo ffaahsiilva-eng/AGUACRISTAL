@@ -264,6 +264,34 @@ export interface PaymentRecord {
   created_at: string;
 }
 
+export interface MonthlyClosingRecord {
+  id: string; // e.g. "closing-2026-09"
+  month: string; // "YYYY-MM"
+  month_label: string; // "Setembro de 2026"
+  closed_at: string; // ISO datetime
+  closed_by: string; // user name
+  closed_by_email?: string;
+  gross_revenue: number;
+  total_received: number;
+  total_receivable: number;
+  total_boxes: number;
+  total_expenses: number;
+  net_result: number;
+  profit_margin: number;
+  sales_count: number;
+  expenses_count: number;
+  sales_snapshot: Sale[];
+  expenses_snapshot: Expense[];
+  deliveries_snapshot: Delivery[];
+  notes?: string;
+}
+
+export interface MonthlyClosingState {
+  last_postponed_date?: string; // YYYY-MM-DD
+  closed_months: string[]; // ['2026-09', ...]
+  history: MonthlyClosingRecord[];
+}
+
 export interface CompanySettings {
   company_name: string;
   trade_name: string;

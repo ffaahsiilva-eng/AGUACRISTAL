@@ -17,6 +17,8 @@ import {
   AuditLog,
   PaymentMethod,
   PaymentStatus,
+  MonthlyClosingRecord,
+  MonthlyClosingState,
 } from '../types';
 import {
   DEFAULT_SETTINGS as INITIAL_SETTINGS,
@@ -44,6 +46,8 @@ const STORAGE_KEYS = {
   DELETED_EXPENSE_IDS: 'aguacristal_deleted_expense_ids_v2',
   DELETED_CLIENT_IDS: 'aguacristal_deleted_client_ids_v2',
   DELETED_DRIVER_IDS: 'aguacristal_deleted_driver_ids_v2',
+  MONTHLY_CLOSING_STATE: 'aguacristal_monthly_closing_state_v2',
+  MONTHLY_CLOSING_HISTORY: 'aguacristal_monthly_closing_history_v2',
 };
 
 // Event listener mechanism to broadcast storage updates across components
@@ -276,6 +280,17 @@ class StorageService {
     onSnapshot(doc(db, 'settings', 'company'), (docSnap) => {
       if (docSnap.exists()) {
         setItem(STORAGE_KEYS.SETTINGS, docSnap.data());
+        notifyStorageChange();
+      }
+    });
+
+    onSnapshot(doc(db, 'settings', 'monthly_closing'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as MonthlyClosingState;
+        setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, data);
+        if (Array.isArray(data.history)) {
+          setItem(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, data.history);
+        }
         notifyStorageChange();
       }
     });
@@ -1407,6 +1422,197 @@ class StorageService {
   public async saveCompanyInfo(info: CompanyInfo): Promise<void> {
     await setDoc(doc(db, 'settings', 'company_info'), info);
     this.logAudit('Alteração', 'Configuração', 'company', 'Dados da empresa atualizados via Firestore');
+  }
+
+  // Monthly Closing Methods
+  public getMonthlyClosingState(): MonthlyClosingState {
+    return getItem<MonthlyClosingState>(STORAGE_KEYS.MONTHLY_CLOSING_STATE, {
+      closed_months: [],
+      history: [],
+    });
+  }
+
+  public getMonthlyClosingHistory(): MonthlyClosingRecord[] {
+    const history = getItem<MonthlyClosingRecord[]>(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, []);
+    return history.sort((a, b) => b.month.localeCompare(a.month));
+  }
+
+  public postponeMonthlyClosing(todayDateStr?: string): void {
+    const state = this.getMonthlyClosingState();
+    const today = todayDateStr || getTodayDateString();
+    state.last_postponed_date = today;
+    setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, state);
+    notifyStorageChange();
+
+    setDoc(doc(db, 'settings', 'monthly_closing'), state).catch((err) => {
+      console.warn('Erro ao salvar adiamento de fechamento no Firestore:', err);
+    });
+  }
+
+  public async executeMonthlyClosing(
+    targetMonth: string, // 'YYYY-MM'
+    cutoffDate: string, // YYYY-MM-DD
+    notes?: string
+  ): Promise<MonthlyClosingRecord> {
+    const currentUser = this.getCurrentUser();
+    const allSales = this.getSales();
+    const allExpenses = this.getExpenses();
+    const allDeliveries = this.getDeliveries();
+
+    // 1. Identify movements for target month up to cutoffDate
+    const salesToClose = allSales.filter(
+      (s) => !s.is_deleted && s.sale_date.startsWith(targetMonth) && s.sale_date <= cutoffDate
+    );
+    const expensesToClose = allExpenses.filter(
+      (e) => !e.is_deleted && e.expense_date.startsWith(targetMonth) && e.expense_date <= cutoffDate
+    );
+    const deliveriesToClose = allDeliveries.filter(
+      (d) => !d.is_deleted && d.delivery_date.startsWith(targetMonth) && d.delivery_date <= cutoffDate
+    );
+
+    // Month label
+    const [year, month] = targetMonth.split('-');
+    const monthNames = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    const monthLabel = `${monthNames[parseInt(month, 10) - 1]} de ${year}`;
+
+    // Aggregates
+    const gross_revenue = salesToClose.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
+    const total_received = salesToClose.reduce((acc, curr) => acc + (curr.amount_paid || 0), 0);
+    const total_receivable = salesToClose.reduce((acc, curr) => acc + (curr.pending_amount || 0), 0);
+    const total_boxes = salesToClose.reduce((acc, curr) => acc + (curr.quantity || 0), 0);
+    const total_expenses = expensesToClose.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const net_result = gross_revenue - total_expenses;
+    const profit_margin = gross_revenue > 0 ? (net_result / gross_revenue) * 100 : 0;
+
+    const closingRecord: MonthlyClosingRecord = {
+      id: `closing-${targetMonth}-${Date.now()}`,
+      month: targetMonth,
+      month_label: monthLabel,
+      closed_at: new Date().toISOString(),
+      closed_by: currentUser.name || 'Administrador',
+      closed_by_email: currentUser.email || '',
+      gross_revenue,
+      total_received,
+      total_receivable,
+      total_boxes,
+      total_expenses,
+      net_result,
+      profit_margin,
+      sales_count: salesToClose.length,
+      expenses_count: expensesToClose.length,
+      sales_snapshot: salesToClose,
+      expenses_snapshot: expensesToClose,
+      deliveries_snapshot: deliveriesToClose,
+      notes: notes || `Fechamento do mês ${monthLabel} concluído até o dia ${cutoffDate}.`,
+    };
+
+    // 2. Update state & history
+    const state = this.getMonthlyClosingState();
+    if (!state.closed_months.includes(targetMonth)) {
+      state.closed_months.push(targetMonth);
+    }
+    const history = this.getMonthlyClosingHistory();
+    // remove any previous closing for this month or update it
+    const filteredHistory = history.filter((h) => h.month !== targetMonth);
+    filteredHistory.unshift(closingRecord);
+    state.history = filteredHistory;
+
+    setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, state);
+    setItem(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, filteredHistory);
+
+    // 3. Reset/Zero movements for closed month (both local and Firestore)
+    const salesIdsToDelete = salesToClose.map((s) => s.id);
+    const expensesIdsToDelete = expensesToClose.map((e) => e.id);
+    const deliveriesIdsToDelete = deliveriesToClose.map((d) => d.id);
+
+    const deletedSalesIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
+    const newDeletedSalesIds = Array.from(new Set([...deletedSalesIds, ...salesIdsToDelete]));
+    setItem(STORAGE_KEYS.DELETED_SALES_IDS, newDeletedSalesIds);
+
+    const deletedExpensesIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+    const newDeletedExpensesIds = Array.from(new Set([...deletedExpensesIds, ...expensesIdsToDelete]));
+    setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, newDeletedExpensesIds);
+
+    const deletedDeliveriesIds = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+    const newDeletedDeliveriesIds = Array.from(new Set([...deletedDeliveriesIds, ...deliveriesIdsToDelete]));
+    setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, newDeletedDeliveriesIds);
+
+    const remainingSales = allSales.filter((s) => !salesIdsToDelete.includes(s.id));
+    const remainingExpenses = allExpenses.filter((e) => !expensesIdsToDelete.includes(e.id));
+    const remainingDeliveries = allDeliveries.filter((d) => !deliveriesIdsToDelete.includes(d.id));
+
+    setItem(STORAGE_KEYS.SALES, remainingSales);
+    setItem(STORAGE_KEYS.EXPENSES, remainingExpenses);
+    setItem(STORAGE_KEYS.DELIVERIES, remainingDeliveries);
+
+    this.logAudit(
+      'Alteração',
+      'Configuração',
+      closingRecord.id,
+      `Fechamento do mês ${monthLabel} executado com sucesso. ${salesToClose.length} vendas e ${expensesToClose.length} despesas zeradas e arquivadas no histórico.`
+    );
+
+    notifyStorageChange();
+
+    // 4. Persist to Firestore: update monthly_closing document and delete the items in chunks
+    try {
+      await setDoc(doc(db, 'settings', 'monthly_closing'), state);
+      await setDoc(doc(db, 'settings', 'deleted_records'), {
+        deleted_sales_ids: newDeletedSalesIds,
+        deleted_expense_ids: newDeletedExpensesIds,
+        deleted_delivery_ids: newDeletedDeliveriesIds,
+        updated_at: new Date().toISOString(),
+      });
+
+      // Also save individual archive doc in firestore for durability
+      await setDoc(doc(db, 'monthly_closings', targetMonth), closingRecord);
+
+      // Delete items from firestore collections in batches
+      const maxBatch = 400;
+      let batch = writeBatch(db);
+      let count = 0;
+
+      for (const id of salesIdsToDelete) {
+        batch.delete(doc(db, 'sales', id));
+        count++;
+        if (count >= maxBatch) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+
+      for (const id of expensesIdsToDelete) {
+        batch.delete(doc(db, 'expenses', id));
+        count++;
+        if (count >= maxBatch) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+
+      for (const id of deliveriesIdsToDelete) {
+        batch.delete(doc(db, 'deliveries', id));
+        count++;
+        if (count >= maxBatch) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+
+      if (count > 0) {
+        await batch.commit();
+      }
+    } catch (err) {
+      console.error('Erro ao persistir fechamento mensal no Firestore:', err);
+    }
+
+    return closingRecord;
   }
 
   public exportBackupJSON(): string {

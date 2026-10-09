@@ -13,6 +13,8 @@ import {
   Users,
   CheckCircle2,
   Droplets,
+  History,
+  CalendarCheck2,
 } from 'lucide-react';
 import { storage } from '../services/storage';
 import { formatCurrency, formatDate, formatNumber } from '../utils/formatters';
@@ -20,15 +22,28 @@ import { exportToExcel } from '../utils/excel';
 
 interface FinancialClosingViewProps {
   onPrintClosingReport: (monthText: string, dreData: any, summary: any) => void;
+  onOpenMonthlyHistory?: () => void;
+  onOpenMonthlyClosing?: () => void;
+  initialMonth?: string;
 }
 
 export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
   onPrintClosingReport,
+  onOpenMonthlyHistory,
+  onOpenMonthlyClosing,
+  initialMonth,
 }) => {
   const [selectedMonth, setSelectedMonth] = useState(() => {
+    if (initialMonth) return initialMonth;
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  React.useEffect(() => {
+    if (initialMonth) {
+      setSelectedMonth(initialMonth);
+    }
+  }, [initialMonth]);
 
   const sales = storage.getSales();
   const expenses = storage.getExpenses();
@@ -137,10 +152,10 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-black text-slate-900 font-sans">
-            Fechamento Mensal & Resultados
+            FECHAR O MÊS
           </h1>
           <p className="text-xs text-slate-500">
-            Demonstrativo financeiro completo, apuração de receitas, custos e lucro líquido.
+            Demonstrativo financeiro completo, apuração de receitas, custos e encerramento do mês.
           </p>
         </div>
 
@@ -151,6 +166,28 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="px-3 py-1.5 text-xs font-bold border border-slate-300 rounded-xl bg-white text-slate-800"
           />
+
+          {onOpenMonthlyClosing && (
+            <button
+              onClick={onOpenMonthlyClosing}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-xs transition-all cursor-pointer"
+              title="Abrir janela de fechamento e zeramento do mês"
+            >
+              <CalendarCheck2 className="w-4 h-4" />
+              FECHAR O MÊS
+            </button>
+          )}
+
+          {onOpenMonthlyHistory && (
+            <button
+              onClick={onOpenMonthlyHistory}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-sky-800 bg-sky-100 hover:bg-sky-200 border border-sky-300 rounded-xl shadow-xs transition-all cursor-pointer"
+              title="Ver histórico de meses arquivados e baixar"
+            >
+              <History className="w-4 h-4 text-sky-700" />
+              Histórico de Meses
+            </button>
+          )}
 
           <button
             onClick={handleExport}

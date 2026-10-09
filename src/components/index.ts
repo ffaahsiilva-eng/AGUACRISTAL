@@ -9,4 +9,6 @@ export { ExcelImportModal } from './ExcelImportModal';
 export { PrintReportView } from './PrintReportView';
 export { ConfirmModal } from './ConfirmModal';
 export { GlobalSearchModal } from './GlobalSearchModal';
+export { MonthlyClosingModal } from './MonthlyClosingModal';
+export { MonthlyHistoryModal } from './MonthlyHistoryModal';
 export * from './AiChatModal';

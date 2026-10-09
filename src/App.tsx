@@ -15,6 +15,8 @@ import {
   ConfirmModal,
   GlobalSearchModal,
   AiChatModal,
+  MonthlyClosingModal,
+  MonthlyHistoryModal,
 } from './components';
 import {
   DashboardView,
@@ -151,6 +153,13 @@ export function App() {
     onConfirm: () => {},
   });
 
+  // Monthly Closing & History States
+  const [isMonthlyClosingModalOpen, setIsMonthlyClosingModalOpen] = useState(false);
+  const [isMonthlyHistoryModalOpen, setIsMonthlyHistoryModalOpen] = useState(false);
+  const [monthlyClosingTargetMonth, setMonthlyClosingTargetMonth] = useState('2026-10');
+  const [monthlyClosingTargetLabel, setMonthlyClosingTargetLabel] = useState('Outubro de 2026');
+  const [dreSelectedMonth, setDreSelectedMonth] = useState<string | undefined>(undefined);
+
   // Subscribe to storage updates
   useEffect(() => {
     const unsubscribe = storage.subscribe(() => {
@@ -158,6 +167,48 @@ export function App() {
     });
     return unsubscribe;
   }, []);
+
+  // Automatic Monthly Closing Check (Triggers from Day 2 of each month)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const checkMonthlyClosingPrompt = () => {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonthNum = now.getMonth() + 1; // 1-12
+      const currentDay = now.getDate(); // 1-31
+      const todayStr = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+      const currentMonthStr = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`;
+
+      const closingState = storage.getMonthlyClosingState();
+      const closedMonths = closingState.closed_months || [];
+
+      // Check if current month was already closed
+      const isAlreadyClosed = closedMonths.includes(currentMonthStr);
+
+      // Check if user postponed today
+      const wasPostponedToday = closingState.last_postponed_date === todayStr;
+
+      // Condition: On or after day 2 (or forced for current active month as requested: "E ja deixe esse mês mostrando a janela")
+      // If current month is not closed, and wasn't postponed today, show the prompt
+      const shouldPrompt = !isAlreadyClosed && !wasPostponedToday && (currentDay >= 2 || true);
+
+      if (shouldPrompt) {
+        const monthNames = [
+          'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+          'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+        ];
+        const label = `${monthNames[currentMonthNum - 1]} de ${currentYear}`;
+        setMonthlyClosingTargetMonth(currentMonthStr);
+        setMonthlyClosingTargetLabel(label);
+        setIsMonthlyClosingModalOpen(true);
+      }
+    };
+
+    // Run check after initial render / storage hydration
+    const timer = setTimeout(checkMonthlyClosingPrompt, 600);
+    return () => clearTimeout(timer);
+  }, [currentUser, dataVersion]);
 
   // Handlers for Sales
   const handleOpenNewSale = (preselectedClient?: Client) => {
@@ -525,6 +576,7 @@ export function App() {
         setIsMobileOpen={setIsMobileMenuOpen}
         onOpenNewSale={() => handlePermittedNewSale()}
         onOpenQuickSale={() => handlePermittedQuickSale()}
+        onOpenMonthlyHistory={() => setIsMonthlyHistoryModalOpen(true)}
         pendingDeliveriesCount={pendingDeliveriesCount}
         pendingReceivablesCount={pendingReceivablesCount}
         onLogout={handleLogout}
@@ -539,6 +591,7 @@ export function App() {
           onOpenAiChat={() => {}}
           onOpenQuickSale={() => handlePermittedQuickSale()}
           onOpenNewSale={() => handlePermittedNewSale()}
+          onOpenMonthlyHistory={() => setIsMonthlyHistoryModalOpen(true)}
           todaySalesTotal={todaySalesTotal}
           todayDeliveriesCount={todayDeliveriesCount}
           onNavigateToTab={handleNavigateTab}
@@ -554,6 +607,8 @@ export function App() {
                 onOpenNewSale={() => handlePermittedNewSale()}
                 onOpenQuickSale={() => handlePermittedQuickSale()}
                 onOpenNewExpense={() => handlePermittedNewExpense()}
+                onOpenMonthlyHistory={() => setIsMonthlyHistoryModalOpen(true)}
+                onOpenMonthlyClosing={() => setIsMonthlyClosingModalOpen(true)}
                 onDeleteSale={handleDeleteSale}
                 onEditSale={handleEditSale}
               />
@@ -619,6 +674,9 @@ export function App() {
             {(activeTab === 'monthly-closing' || activeTab === 'finance') && (
               <FinancialClosingView
                 onPrintClosingReport={handlePrintClosingReport}
+                onOpenMonthlyHistory={() => setIsMonthlyHistoryModalOpen(true)}
+                onOpenMonthlyClosing={() => setIsMonthlyClosingModalOpen(true)}
+                initialMonth={dreSelectedMonth}
               />
             )}
 
@@ -751,6 +809,31 @@ export function App() {
           onCancel={() =>
             setConfirmModalConfig((prev) => ({ ...prev, isOpen: false }))
           }
+        />
+      )}
+
+      {/* Monthly Closing Modal */}
+      {isMonthlyClosingModalOpen && (
+        <MonthlyClosingModal
+          isOpen={isMonthlyClosingModalOpen}
+          onClose={() => setIsMonthlyClosingModalOpen(false)}
+          targetMonth={monthlyClosingTargetMonth}
+          targetMonthLabel={monthlyClosingTargetLabel}
+          onClosedSuccess={() => {
+            setDataVersion((v) => v + 1);
+          }}
+        />
+      )}
+
+      {/* Monthly History Modal */}
+      {isMonthlyHistoryModalOpen && (
+        <MonthlyHistoryModal
+          isOpen={isMonthlyHistoryModalOpen}
+          onClose={() => setIsMonthlyHistoryModalOpen(false)}
+          onSelectMonthForDRE={(month) => {
+            setDreSelectedMonth(month);
+            setActiveTab('monthly-closing');
+          }}
         />
       )}
     </div>

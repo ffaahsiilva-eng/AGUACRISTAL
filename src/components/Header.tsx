@@ -14,6 +14,7 @@ import {
   Sparkles,
   LogOut,
   User as UserIcon,
+  History,
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { storage } from '../services/storage';
@@ -24,6 +25,7 @@ interface HeaderProps {
   onOpenGlobalSearch: () => void;
   onOpenNewSale: () => void;
   onOpenQuickSale: () => void;
+  onOpenMonthlyHistory?: () => void;
   onToggleMobileMenu: () => void;
   todaySalesTotal: number;
   todayDeliveriesCount: number;
@@ -36,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenGlobalSearch,
   onOpenNewSale,
   onOpenQuickSale,
+  onOpenMonthlyHistory,
   onToggleMobileMenu,
   todaySalesTotal,
   todayDeliveriesCount,
@@ -149,6 +152,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-1.5 shrink-0">
+            {onOpenMonthlyHistory && (
+              <button
+                id="header-monthly-history-btn"
+                onClick={onOpenMonthlyHistory}
+                className="inline-flex items-center justify-center h-[34px] px-2.5 md:px-3 rounded-lg text-xs font-bold bg-slate-100 text-slate-800 border border-slate-300 hover:bg-slate-200 active:scale-95 transition-all shrink-0 cursor-pointer"
+                title="Histórico de Fechamentos Mensais (Baixar e Filtrar)"
+              >
+                <History className="w-4 h-4 md:w-3.5 md:h-3.5 text-sky-700 shrink-0" />
+                <span className="hidden sm:inline ml-1.5 whitespace-nowrap">Histórico</span>
+              </button>
+            )}
+
             <button
               id="header-quick-sale-btn"
               onClick={onOpenQuickSale}

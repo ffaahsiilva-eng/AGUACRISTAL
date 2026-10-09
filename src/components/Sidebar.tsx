@@ -13,6 +13,7 @@ import {
   Percent,
   FileBarChart,
   CalendarCheck2,
+  History,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -32,6 +33,7 @@ interface SidebarProps {
   setIsMobileOpen?: (open: boolean) => void;
   onOpenNewSale?: () => void;
   onOpenQuickSale?: () => void;
+  onOpenMonthlyHistory?: () => void;
   pendingDeliveriesCount?: number;
   pendingReceivablesCount?: number;
   onLogout?: () => void;
@@ -46,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsMobileOpen = (_open: boolean) => {},
   onOpenNewSale = () => {},
   onOpenQuickSale = () => {},
+  onOpenMonthlyHistory = () => {},
   pendingDeliveriesCount = 0,
   pendingReceivablesCount = 0,
   onLogout = () => {},
@@ -64,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'finance' as ActiveTab, label: 'Financeiro', icon: DollarSign },
     { id: 'commissions' as ActiveTab, label: 'Minhas Comissões', icon: Percent },
     { id: 'reports' as ActiveTab, label: 'Relatórios', icon: FileBarChart },
-    { id: 'monthly-closing' as ActiveTab, label: 'Fechamento Mensal', icon: CalendarCheck2 },
+    { id: 'monthly-closing' as ActiveTab, label: 'FECHAR O MÊS', icon: CalendarCheck2 },
     { id: 'settings' as ActiveTab, label: 'Configurações', icon: Settings },
   ];
 
@@ -189,6 +192,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           );
         })}
+
+        {/* Dedicated Monthly History Button */}
+        <button
+          id="nav-item-monthly-history"
+          onClick={() => {
+            onOpenMonthlyHistory();
+            if (window.innerWidth < 768) setIsMobileOpen(false);
+          }}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-amber-300 hover:text-white hover:bg-amber-500/20 transition-all group border border-amber-500/20 mt-2"
+          title={isCollapsed ? "Histórico Mensal" : undefined}
+        >
+          <History className="w-4 h-4 shrink-0 text-amber-400 group-hover:scale-110 transition-transform" />
+          {!isCollapsed && (
+            <span className="flex-1 text-left truncate font-bold">Histórico Mensal</span>
+          )}
+        </button>
       </div>
 
       {/* User info & Logout Footer */}

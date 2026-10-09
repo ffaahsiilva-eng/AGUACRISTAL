@@ -19,6 +19,8 @@ import {
   Award,
   Trash2,
   Edit2,
+  History,
+  CalendarCheck2,
 } from 'lucide-react';
 import { AiInsightsPanel } from '../components/AiInsightsPanel';
 import { storage } from '../services/storage';
@@ -37,6 +39,8 @@ interface DashboardViewProps {
   onOpenNewSale: () => void;
   onOpenQuickSale: () => void;
   onOpenNewExpense: () => void;
+  onOpenMonthlyHistory?: () => void;
+  onOpenMonthlyClosing?: () => void;
   onNavigateToDeliveries?: () => void;
   onNavigateToReceivables?: () => void;
   onNavigateToCommissions?: () => void;
@@ -49,6 +53,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenNewSale,
   onOpenQuickSale,
   onOpenNewExpense,
+  onOpenMonthlyHistory,
+  onOpenMonthlyClosing,
   onNavigateToDeliveries,
   onNavigateToReceivables,
   onNavigateToCommissions,
@@ -307,6 +313,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {onOpenMonthlyClosing && (
+              <button
+                onClick={onOpenMonthlyClosing}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-lg transition-colors cursor-pointer"
+                title="Aviso de Fechamento Mensal e Zeramento"
+              >
+                <CalendarCheck2 className="w-3.5 h-3.5 text-amber-700" />
+                FECHAR O MÊS
+              </button>
+            )}
+
+            {onOpenMonthlyHistory && (
+              <button
+                onClick={onOpenMonthlyHistory}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-sky-900 bg-sky-100 hover:bg-sky-200 border border-sky-300 rounded-lg transition-colors cursor-pointer"
+                title="Histórico de Fechamentos Anteriores (Baixar ou Filtrar)"
+              >
+                <History className="w-3.5 h-3.5 text-sky-700" />
+                Histórico de Meses
+              </button>
+            )}
+
             <button
               onClick={handleExportDashboard}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
