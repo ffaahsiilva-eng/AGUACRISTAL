@@ -435,9 +435,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
       <div className="w-full md:w-7/12 lg:w-1/2 min-h-screen flex items-center justify-center p-4 sm:p-8 lg:p-16 bg-slate-50">
         <div className="w-full max-w-md">
           {/* Mobile Logo Header (Shown on phone only: < md) */}
-          <div className="md:hidden flex items-center gap-3 mb-5 pb-3 border-b border-slate-200">
-            <img src="/logo.png" alt="Logo" className="w-40 sm:w-48 h-auto max-h-24 object-contain origin-left" />
-            
+          <div className="md:hidden flex flex-col items-center justify-center mb-6 text-center w-full">
+            <img
+              src="/logo.png"
+              alt="Logo Água Cristal Sul"
+              className="w-48 sm:w-56 h-auto max-h-24 object-contain mx-auto"
+            />
           </div>
           {/* ======================================================== */}
           {/* SCREEN 1: LOGIN */}
