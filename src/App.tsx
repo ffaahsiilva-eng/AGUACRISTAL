@@ -156,8 +156,8 @@ export function App() {
   // Monthly Closing & History States
   const [isMonthlyClosingModalOpen, setIsMonthlyClosingModalOpen] = useState(false);
   const [isMonthlyHistoryModalOpen, setIsMonthlyHistoryModalOpen] = useState(false);
-  const [monthlyClosingTargetMonth, setMonthlyClosingTargetMonth] = useState('2026-10');
-  const [monthlyClosingTargetLabel, setMonthlyClosingTargetLabel] = useState('Outubro de 2026');
+  const [monthlyClosingTargetMonth, setMonthlyClosingTargetMonth] = useState('2026-09');
+  const [monthlyClosingTargetLabel, setMonthlyClosingTargetLabel] = useState('Setembro de 2026');
   const [dreSelectedMonth, setDreSelectedMonth] = useState<string | undefined>(undefined);
 
   // Subscribe to storage updates
@@ -168,38 +168,74 @@ export function App() {
     return unsubscribe;
   }, []);
 
-  // Automatic Monthly Closing Check (Triggers from Day 2 of each month)
+  const handleOpenMonthlyClosing = (month?: string) => {
+    const monthNames = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+
+    if (month && month.includes('-')) {
+      setMonthlyClosingTargetMonth(month);
+      const [y, mon] = month.split('-');
+      setMonthlyClosingTargetLabel(`${monthNames[parseInt(mon, 10) - 1] || mon} de ${y}`);
+    } else {
+      const sales = storage.getSales();
+      const closingState = storage.getMonthlyClosingState();
+      const closedMonths = closingState.closed_months || [];
+      const unclosed = Array.from(
+        new Set(sales.map((s) => (s.sale_date || '').slice(0, 7)).filter(Boolean))
+      ).filter((m) => !closedMonths.includes(m)).sort();
+
+      const targetM = unclosed[0] || '2026-09';
+      setMonthlyClosingTargetMonth(targetM);
+      const [y, mon] = targetM.split('-');
+      setMonthlyClosingTargetLabel(`${monthNames[parseInt(mon, 10) - 1] || mon} de ${y}`);
+    }
+    setIsMonthlyClosingModalOpen(true);
+  };
+
+  // Automatic Monthly Closing Check (Finds months with unclosed movements)
   useEffect(() => {
     if (!currentUser) return;
 
     const checkMonthlyClosingPrompt = () => {
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonthNum = now.getMonth() + 1; // 1-12
-      const currentDay = now.getDate(); // 1-31
-      const todayStr = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
-      const currentMonthStr = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`;
-
       const closingState = storage.getMonthlyClosingState();
       const closedMonths = closingState.closed_months || [];
+      const sales = storage.getSales();
+      const expenses = storage.getExpenses();
 
-      // Check if current month was already closed
-      const isAlreadyClosed = closedMonths.includes(currentMonthStr);
+      const activeMonthsSet = new Set<string>();
+      sales.forEach((s) => {
+        const m = (s.sale_date || '').slice(0, 7);
+        if (m && !closedMonths.includes(m)) activeMonthsSet.add(m);
+      });
+      expenses.forEach((e) => {
+        const m = (e.expense_date || '').slice(0, 7);
+        if (m && !closedMonths.includes(m)) activeMonthsSet.add(m);
+      });
 
-      // Check if user postponed today
+      // Do not auto-prompt for months that were intentionally reopened by the user
+      const reopenedMonths = (closingState.history || [])
+        .filter((h) => h.is_reopened)
+        .map((h) => h.month);
+
+      const unclosedMonths = Array.from(activeMonthsSet)
+        .filter((m) => !reopenedMonths.includes(m))
+        .sort();
+
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
       const wasPostponedToday = closingState.last_postponed_date === todayStr;
 
-      // Condition: On or after day 2 (or forced for current active month as requested: "E ja deixe esse mês mostrando a janela")
-      // If current month is not closed, and wasn't postponed today, show the prompt
-      const shouldPrompt = !isAlreadyClosed && !wasPostponedToday && (currentDay >= 2 || true);
-
-      if (shouldPrompt) {
+      if (unclosedMonths.length > 0 && !wasPostponedToday) {
+        const targetM = unclosedMonths[0]; // oldest unclosed month with movements
+        const [y, mon] = targetM.split('-');
         const monthNames = [
           'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
           'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
         ];
-        const label = `${monthNames[currentMonthNum - 1]} de ${currentYear}`;
-        setMonthlyClosingTargetMonth(currentMonthStr);
+        const label = `${monthNames[parseInt(mon, 10) - 1] || mon} de ${y}`;
+        setMonthlyClosingTargetMonth(targetM);
         setMonthlyClosingTargetLabel(label);
         setIsMonthlyClosingModalOpen(true);
       }
@@ -608,7 +644,7 @@ export function App() {
                 onOpenQuickSale={() => handlePermittedQuickSale()}
                 onOpenNewExpense={() => handlePermittedNewExpense()}
                 onOpenMonthlyHistory={() => setIsMonthlyHistoryModalOpen(true)}
-                onOpenMonthlyClosing={() => setIsMonthlyClosingModalOpen(true)}
+                onOpenMonthlyClosing={() => handleOpenMonthlyClosing()}
                 onDeleteSale={handleDeleteSale}
                 onEditSale={handleEditSale}
               />
@@ -675,7 +711,7 @@ export function App() {
               <FinancialClosingView
                 onPrintClosingReport={handlePrintClosingReport}
                 onOpenMonthlyHistory={() => setIsMonthlyHistoryModalOpen(true)}
-                onOpenMonthlyClosing={() => setIsMonthlyClosingModalOpen(true)}
+                onOpenMonthlyClosing={(month?: string) => handleOpenMonthlyClosing(month)}
                 initialMonth={dreSelectedMonth}
               />
             )}

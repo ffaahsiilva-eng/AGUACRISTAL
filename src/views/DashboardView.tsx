@@ -259,7 +259,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Closed Months Banner with Quick Return Option */}
       {(() => {
         const closingState = storage.getMonthlyClosingState();
-        const closedMonths = closingState.closed_months || [];
+        const closedMonths = (closingState.closed_months || []).filter((m) => {
+          const rec = (closingState.history || []).find((h) => h.month === m);
+          return !rec?.is_reopened;
+        });
         if (closedMonths.length === 0) return null;
         return (
           <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-950 shadow-xs animate-in fade-in">
@@ -277,23 +280,43 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (
-                    window.confirm(
-                      `Deseja retornar o fechamento de ${closedMonths[0]}? Todas as vendas, entregas e despesas arquivadas serão restauradas imediatamente no painel.`
-                    )
-                  ) {
-                    await storage.reopenMonthlyClosing(closedMonths[0]);
-                  }
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 active:scale-95 rounded-xl shadow-xs transition-all cursor-pointer"
-                title="Retornar este fechamento e reativar registros no painel"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Retornar Fechamento
-              </button>
+              {closedMonths.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (
+                      window.confirm(
+                        `Deseja retornar todos os ${closedMonths.length} meses fechados? Todas as vendas, entregas e despesas arquivadas serão restauradas imediatamente no painel.`
+                      )
+                    ) {
+                      await storage.reopenAllMonthlyClosings();
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 active:scale-95 rounded-xl shadow-xs transition-all cursor-pointer"
+                  title="Retornar todos os fechamentos e reativar registros no painel"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Retornar Todos ({closedMonths.length})
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (
+                      window.confirm(
+                        `Deseja retornar o fechamento de ${closedMonths[0]}? Todas as vendas, entregas e despesas arquivadas serão restauradas imediatamente no painel.`
+                      )
+                    ) {
+                      await storage.reopenMonthlyClosing(closedMonths[0]);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 active:scale-95 rounded-xl shadow-xs transition-all cursor-pointer"
+                  title="Retornar este fechamento e reativar registros no painel"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Retornar Fechamento
+                </button>
+              )}
               {onOpenMonthlyHistory && (
                 <button
                   type="button"

@@ -25,7 +25,7 @@ import { exportToExcel } from '../utils/excel';
 interface FinancialClosingViewProps {
   onPrintClosingReport: (monthText: string, dreData: any, summary: any) => void;
   onOpenMonthlyHistory?: () => void;
-  onOpenMonthlyClosing?: () => void;
+  onOpenMonthlyClosing?: (month?: string) => void;
   initialMonth?: string;
 }
 
@@ -52,8 +52,10 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
   const [isReopening, setIsReopening] = useState(false);
 
   const closingState = storage.getMonthlyClosingState();
-  const isSelectedMonthClosed = (closingState.closed_months || []).includes(selectedMonth);
   const closingRecordForSelectedMonth = (closingState.history || []).find((h) => h.month === selectedMonth);
+  const isSelectedMonthClosed =
+    (closingState.closed_months || []).includes(selectedMonth) &&
+    !closingRecordForSelectedMonth?.is_reopened;
 
   // Filter for selected month
   const monthSales = useMemo(() => {
@@ -195,7 +197,7 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
 
           {onOpenMonthlyClosing && (
             <button
-              onClick={onOpenMonthlyClosing}
+              onClick={() => onOpenMonthlyClosing(selectedMonth)}
               className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-black uppercase tracking-wider text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-xs transition-all cursor-pointer"
               title="Abrir janela de fechamento e zeramento do mês"
             >

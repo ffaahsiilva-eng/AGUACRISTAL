@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   Calendar,
@@ -20,8 +20,8 @@ interface MonthlyClosingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onClosedSuccess?: () => void;
-  targetMonth: string; // e.g. "2026-10"
-  targetMonthLabel: string; // e.g. "Outubro de 2026"
+  targetMonth?: string; // e.g. "2026-10"
+  targetMonthLabel?: string; // e.g. "Outubro de 2026"
   isManualTrigger?: boolean;
 }
 
@@ -33,36 +33,109 @@ export const MonthlyClosingModal: React.FC<MonthlyClosingModalProps> = ({
   targetMonthLabel,
   isManualTrigger = false,
 }) => {
-  const [cutoffDate, setCutoffDate] = useState(() => {
-    if (targetMonth && targetMonth.includes('-')) {
-      const [y, m] = targetMonth.split('-').map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      return `${targetMonth}-${String(lastDay).padStart(2, '0')}`;
-    }
-    const d = new Date();
-    return d.toISOString().split('T')[0];
-  });
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [step, setStep] = useState<'prompt' | 'confirm_close'>('prompt');
 
-  if (!isOpen) return null;
-
   const sales = storage.getSales();
   const expenses = storage.getExpenses();
 
-  // Movements in target month (full month by default unless a specific in-month cutoff date is chosen)
-  const isCutoffInMonth = !!(cutoffDate && cutoffDate.startsWith(targetMonth));
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  const availableMonths = React.useMemo(() => {
+    const map = new Map<string, { salesCount: number; totalGross: number; boxes: number; expensesCount: number; totalExp: number }>();
+
+    sales.forEach((s) => {
+      const m = (s.sale_date || '').slice(0, 7);
+      if (m) {
+        const cur = map.get(m) || { salesCount: 0, totalGross: 0, boxes: 0, expensesCount: 0, totalExp: 0 };
+        cur.salesCount += 1;
+        cur.totalGross += (s.total_amount || 0);
+        cur.boxes += (s.quantity || 0);
+        map.set(m, cur);
+      }
+    });
+
+    expenses.forEach((e) => {
+      const m = (e.expense_date || '').slice(0, 7);
+      if (m) {
+        const cur = map.get(m) || { salesCount: 0, totalGross: 0, boxes: 0, expensesCount: 0, totalExp: 0 };
+        cur.expensesCount += 1;
+        cur.totalExp += (e.amount || 0);
+        map.set(m, cur);
+      }
+    });
+
+    if (targetMonth && !map.has(targetMonth)) {
+      map.set(targetMonth, { salesCount: 0, totalGross: 0, boxes: 0, expensesCount: 0, totalExp: 0 });
+    }
+
+    return Array.from(map.entries())
+      .map(([m, data]) => {
+        const [year, mon] = m.split('-');
+        const label = `${monthNames[parseInt(mon, 10) - 1] || mon} de ${year}`;
+        return {
+          month: m,
+          label,
+          ...data,
+        };
+      })
+      .sort((a, b) => {
+        if (b.salesCount !== a.salesCount) return b.salesCount - a.salesCount;
+        return a.month.localeCompare(b.month);
+      });
+  }, [sales, expenses, targetMonth]);
+
+  const [activeMonth, setActiveMonth] = useState(() => {
+    const targetWithSales = availableMonths.find((m) => m.month === targetMonth && m.salesCount > 0);
+    if (targetWithSales) return targetWithSales.month;
+    const firstWithSales = availableMonths.find((m) => m.salesCount > 0);
+    if (firstWithSales) return firstWithSales.month;
+    return targetMonth || '2026-09';
+  });
+
+  const [cutoffDate, setCutoffDate] = useState(() => {
+    if (activeMonth && activeMonth.includes('-')) {
+      const [y, m] = activeMonth.split('-').map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      return `${activeMonth}-${String(lastDay).padStart(2, '0')}`;
+    }
+    const d = new Date();
+    return d.toISOString().split('T')[0];
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      const chosen = targetMonth || (availableMonths.length > 0 ? availableMonths[0].month : '2026-10');
+      setActiveMonth(chosen);
+      if (chosen.includes('-')) {
+        const [y, m] = chosen.split('-').map(Number);
+        const lastDay = new Date(y, m, 0).getDate();
+        setCutoffDate(`${chosen}-${String(lastDay).padStart(2, '0')}`);
+      }
+    }
+  }, [isOpen, targetMonth]);
+
+  if (!isOpen) return null;
+
+  const [activeYear, activeMon] = (activeMonth || '2026-09').split('-');
+  const activeMonthLabel = `${monthNames[parseInt(activeMon, 10) - 1] || activeMon} de ${activeYear}`;
+
+  // Movements in active month
+  const isCutoffInMonth = !!(cutoffDate && cutoffDate.startsWith(activeMonth));
   const monthSales = sales.filter(
     (s) =>
       !s.is_deleted &&
-      s.sale_date.startsWith(targetMonth) &&
+      s.sale_date.startsWith(activeMonth) &&
       (isCutoffInMonth ? s.sale_date <= cutoffDate : true)
   );
   const monthExpenses = expenses.filter(
     (e) =>
       !e.is_deleted &&
-      e.expense_date.startsWith(targetMonth) &&
+      e.expense_date.startsWith(activeMonth) &&
       (isCutoffInMonth ? e.expense_date <= cutoffDate : true)
   );
 
@@ -79,7 +152,7 @@ export const MonthlyClosingModal: React.FC<MonthlyClosingModalProps> = ({
   const handleExecuteClosing = async () => {
     setIsSubmitting(true);
     try {
-      await storage.executeMonthlyClosing(targetMonth, cutoffDate, notes);
+      await storage.executeMonthlyClosing(activeMonth, cutoffDate, notes);
       setIsSubmitting(false);
       if (onClosedSuccess) {
         onClosedSuccess();
@@ -119,7 +192,7 @@ export const MonthlyClosingModal: React.FC<MonthlyClosingModalProps> = ({
             </div>
           </div>
           <p className="text-xs sm:text-sm font-semibold opacity-95 mt-1 leading-snug">
-            Chegou o período de fechamento mensal ({targetMonthLabel}). Você pode fechar o mês agora ou continuar lançando.
+            Chegou o período de fechamento mensal ({activeMonthLabel}). Você pode fechar o mês agora ou continuar lançando.
           </p>
         </div>
 
@@ -127,6 +200,38 @@ export const MonthlyClosingModal: React.FC<MonthlyClosingModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {step === 'prompt' ? (
             <>
+              {/* Month Selector dropdown */}
+              <div className="p-3.5 sm:p-4 bg-amber-50/80 border border-amber-300 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-black text-slate-800">
+                    Selecione o mês para fechar e esvaziar do painel:
+                  </label>
+                  <span className="text-[10px] sm:text-[11px] font-extrabold text-amber-900 bg-amber-200/80 px-2.5 py-0.5 rounded-full">
+                    {monthSales.length} vendas ativas
+                  </span>
+                </div>
+                <select
+                  value={activeMonth}
+                  onChange={(e) => {
+                    const newM = e.target.value;
+                    setActiveMonth(newM);
+                    const [y, m] = newM.split('-').map(Number);
+                    const lastDay = new Date(y, m, 0).getDate();
+                    setCutoffDate(`${newM}-${String(lastDay).padStart(2, '0')}`);
+                  }}
+                  className="w-full px-3 py-2.5 text-xs font-black bg-white border border-slate-300 rounded-xl shadow-xs text-slate-900 focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                >
+                  {availableMonths.map((m) => (
+                    <option key={m.month} value={m.month}>
+                      {m.label} ({m.salesCount} vendas • {formatCurrency(m.totalGross)})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-600">
+                  Todas as vendas, despesas e entregas deste mês serão arquivadas com segurança no histórico e esvaziadas do painel ativo.
+                </p>
+              </div>
+
               {/* Summary of what will be closed & zeroed */}
               <div className="bg-amber-50 border border-amber-200/80 rounded-2xl p-3.5 sm:p-4 text-xs space-y-2">
                 <div className="flex items-center gap-2 font-bold text-amber-950 text-xs sm:text-sm">
@@ -197,7 +302,7 @@ export const MonthlyClosingModal: React.FC<MonthlyClosingModalProps> = ({
                   Confirmação de Fechamento e Zeramento
                 </div>
                 <p className="text-rose-800 leading-relaxed text-[11px] sm:text-xs">
-                  Você está prestes a fechar o mês <strong>{targetMonthLabel}</strong> até a data <strong>{formatDate(cutoffDate)}</strong>.
+                  Você está prestes a fechar o mês <strong>{activeMonthLabel}</strong> até a data <strong>{formatDate(cutoffDate)}</strong>.
                 </p>
                 <ul className="list-disc list-inside text-rose-900 space-y-1 pl-1 text-[11px] sm:text-xs">
                   <li><strong>{monthSales.length} vendas</strong> ({formatCurrency(totalGross)}) serão zeradas do painel ativo.</li>

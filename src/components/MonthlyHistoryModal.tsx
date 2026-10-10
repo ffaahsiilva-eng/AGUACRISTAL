@@ -45,6 +45,14 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
   const [isReopeningAll, setIsReopeningAll] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [, setVersion] = useState(0);
+
+  React.useEffect(() => {
+    const unsub = storage.subscribe(() => {
+      setVersion((v) => v + 1);
+    });
+    return unsub;
+  }, []);
 
   if (!isOpen) return null;
 
@@ -65,14 +73,21 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
     return true;
   });
 
+  const currentRecord = selectedRecord
+    ? history.find((h) => h.id === selectedRecord.id || h.month === selectedRecord.month) || selectedRecord
+    : filteredHistory[0] || null;
+
   const handleExecuteReopen = async (record: MonthlyClosingRecord) => {
     setIsProcessing(true);
     try {
-      await storage.reopenMonthlyClosing(record.month);
+      const updated = await storage.reopenMonthlyClosing(record.month);
       setFeedbackMessage(
         `Fechamento de ${record.month_label} retornado com sucesso! Todas as vendas, entregas e despesas foram reativadas no painel.`
       );
       setReopeningRecord(null);
+      if (updated) {
+        setSelectedRecord(updated);
+      }
       setTimeout(() => setFeedbackMessage(null), 6000);
     } catch (err) {
       console.error('Erro ao retornar fechamento:', err);
@@ -90,6 +105,10 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
         `Todos os fechamentos (${count}) foram retornados com sucesso! Todos os registros voltaram ao painel ativo.`
       );
       setIsReopeningAll(false);
+      const hist = storage.getMonthlyClosingHistory();
+      if (hist.length > 0) {
+        setSelectedRecord(hist[0]);
+      }
       setTimeout(() => setFeedbackMessage(null), 6000);
     } catch (err) {
       console.error('Erro ao retornar todos os fechamentos:', err);
@@ -184,7 +203,7 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            {history.length > 0 && (
+            {history.some((h) => !h.is_reopened) && (
               <button
                 onClick={() => setIsReopeningAll(true)}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-xs transition-all cursor-pointer"
@@ -262,7 +281,7 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                 </div>
               ) : (
                 filteredHistory.map((rec) => {
-                  const isSelected = selectedRecord?.id === rec.id;
+                  const isSelected = currentRecord?.id === rec.id || currentRecord?.month === rec.month;
                   const isClosed = closedMonthsSet.has(rec.month);
                   return (
                     <div
@@ -311,18 +330,25 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                         <span className="text-slate-500 font-medium">
                           {rec.sales_count} vendas • {formatNumber(rec.total_boxes)} cx
                         </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setReopeningRecord(rec);
-                          }}
-                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-black text-amber-950 bg-amber-300 hover:bg-amber-400 rounded-lg shadow-2xs transition-all cursor-pointer"
-                          title="Retornar este fechamento para o painel ativo"
-                        >
-                          <RotateCcw className="w-3 h-3 text-amber-900" />
-                          Retornar
-                        </button>
+                        {rec.is_reopened ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 rounded-lg border border-emerald-300/60 shadow-2xs">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            Já Retornado
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReopeningRecord(rec);
+                            }}
+                            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-black text-amber-950 bg-amber-300 hover:bg-amber-400 rounded-lg shadow-2xs transition-all cursor-pointer"
+                            title="Retornar este fechamento para o painel ativo"
+                          >
+                            <RotateCcw className="w-3 h-3 text-amber-900" />
+                            Retornar
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -333,7 +359,7 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
 
           {/* Right panel: Details of selected month */}
           <div className="md:col-span-7 flex flex-col bg-white overflow-hidden min-h-0">
-            {selectedRecord ? (
+            {currentRecord ? (
               <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Detail Header */}
                 <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
@@ -342,7 +368,7 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                       <span className="text-[10px] font-black uppercase tracking-wider text-sky-700 bg-sky-100 px-2 py-0.5 rounded-md">
                         Fechamento Mensal
                       </span>
-                      {selectedRecord.is_reopened ? (
+                      {currentRecord.is_reopened ? (
                         <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
                           Retornado / Reaberto
@@ -354,25 +380,32 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                       )}
                     </div>
                     <h3 className="text-lg font-black text-slate-900 mt-1">
-                      {selectedRecord.month_label}
+                      {currentRecord.month_label}
                     </h3>
                     <p className="text-[11px] text-slate-500">
-                      Fechado em: {formatDate(selectedRecord.closed_at.split('T')[0])} por {selectedRecord.closed_by}
+                      Fechado em: {formatDate(currentRecord.closed_at.split('T')[0])} por {currentRecord.closed_by}
                     </p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => setReopeningRecord(selectedRecord)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-xs transition-all cursor-pointer"
-                      title="Retornar este fechamento e reativar vendas no painel"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 text-amber-950" />
-                      Retornar Fechamento
-                    </button>
+                    {!currentRecord.is_reopened ? (
+                      <button
+                        onClick={() => setReopeningRecord(currentRecord)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-xs transition-all cursor-pointer"
+                        title="Retornar este fechamento e reativar vendas no painel"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-950" />
+                        Retornar Fechamento
+                      </button>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300/60 rounded-xl shadow-2xs">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Já Retornado ao Painel
+                      </span>
+                    )}
 
                     <button
-                      onClick={() => handleExportSingleMonth(selectedRecord)}
+                      onClick={() => handleExportSingleMonth(currentRecord)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl shadow-2xs transition-all cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5 text-slate-600" />
@@ -382,7 +415,7 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                     {onSelectMonthForDRE && (
                       <button
                         onClick={() => {
-                          onSelectMonthForDRE(selectedRecord.month);
+                          onSelectMonthForDRE(currentRecord.month);
                           onClose();
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-sky-600 hover:bg-sky-500 rounded-xl shadow-xs transition-all cursor-pointer"
@@ -393,7 +426,7 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                     )}
 
                     <button
-                      onClick={() => handleDeleteRecord(selectedRecord)}
+                      onClick={() => handleDeleteRecord(currentRecord)}
                       className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
                       title="Excluir este registro do arquivo"
                     >
@@ -402,12 +435,12 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                   </div>
                 </div>
 
-                {selectedRecord.is_reopened && (
+                {currentRecord.is_reopened && (
                   <div className="mx-4 sm:mx-5 mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 shrink-0">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>
-                        <strong>Fechamento retornado:</strong> As {selectedRecord.sales_count} vendas e movimentações deste mês estão ativas e disponíveis no sistema.
+                        <strong>Fechamento já retornado:</strong> As {currentRecord.sales_count} vendas e movimentações deste mês já estão reativadas e disponíveis no sistema.
                       </span>
                     </div>
                   </div>
@@ -433,7 +466,7 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                         : 'border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    Vendas ({selectedRecord.sales_snapshot?.length || selectedRecord.sales_count})
+                    Vendas ({currentRecord.sales_snapshot?.length || currentRecord.sales_count})
                   </button>
                   <button
                     onClick={() => setActiveTab('expenses')}
@@ -443,7 +476,7 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                         : 'border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    Despesas ({selectedRecord.expenses_snapshot?.length || selectedRecord.expenses_count})
+                    Despesas ({currentRecord.expenses_snapshot?.length || currentRecord.expenses_count})
                   </button>
                 </div>
 
@@ -456,25 +489,25 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                         <div className="p-3 bg-sky-50 rounded-2xl border border-sky-100">
                           <span className="text-[10px] font-bold text-sky-600 uppercase block">Receita Bruta</span>
                           <span className="text-base font-black text-sky-900 block mt-1">
-                            {formatCurrency(selectedRecord.gross_revenue)}
+                            {formatCurrency(currentRecord.gross_revenue)}
                           </span>
                         </div>
                         <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
                           <span className="text-[10px] font-bold text-slate-500 uppercase block">Volume Vendido</span>
                           <span className="text-base font-black text-slate-900 block mt-1">
-                            {formatNumber(selectedRecord.total_boxes)} cx
+                            {formatNumber(currentRecord.total_boxes)} cx
                           </span>
                         </div>
                         <div className="p-3 bg-rose-50 rounded-2xl border border-rose-100">
                           <span className="text-[10px] font-bold text-rose-600 uppercase block">Total Despesas</span>
                           <span className="text-base font-black text-rose-700 block mt-1">
-                            {formatCurrency(selectedRecord.total_expenses)}
+                            {formatCurrency(currentRecord.total_expenses)}
                           </span>
                         </div>
-                        <div className={`p-3 rounded-2xl border ${selectedRecord.net_result >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+                        <div className={`p-3 rounded-2xl border ${currentRecord.net_result >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
                           <span className="text-[10px] font-bold uppercase block text-slate-600">Lucro Líquido</span>
-                          <span className={`text-base font-black block mt-1 ${selectedRecord.net_result >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                            {formatCurrency(selectedRecord.net_result)}
+                          <span className={`text-base font-black block mt-1 ${currentRecord.net_result >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {formatCurrency(currentRecord.net_result)}
                           </span>
                         </div>
                       </div>
@@ -483,26 +516,26 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2">
                         <div className="flex justify-between py-1 border-b border-slate-200/60">
                           <span className="text-slate-500">Total Recebido no Mês:</span>
-                          <span className="font-bold text-slate-800">{formatCurrency(selectedRecord.total_received)}</span>
+                          <span className="font-bold text-slate-800">{formatCurrency(currentRecord.total_received)}</span>
                         </div>
                         <div className="flex justify-between py-1 border-b border-slate-200/60">
                           <span className="text-slate-500">Total Pendente (A Receber):</span>
-                          <span className="font-bold text-slate-800">{formatCurrency(selectedRecord.total_receivable)}</span>
+                          <span className="font-bold text-slate-800">{formatCurrency(currentRecord.total_receivable)}</span>
                         </div>
                         <div className="flex justify-between py-1 border-b border-slate-200/60">
                           <span className="text-slate-500">Margem de Lucro:</span>
-                          <span className="font-bold text-slate-800">{selectedRecord.profit_margin.toFixed(1)}%</span>
+                          <span className="font-bold text-slate-800">{currentRecord.profit_margin.toFixed(1)}%</span>
                         </div>
                         <div className="flex justify-between py-1">
                           <span className="text-slate-500">Total de Pedidos / Vendas:</span>
-                          <span className="font-bold text-slate-800">{selectedRecord.sales_count}</span>
+                          <span className="font-bold text-slate-800">{currentRecord.sales_count}</span>
                         </div>
                       </div>
 
-                      {selectedRecord.notes && (
+                      {currentRecord.notes && (
                         <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs">
                           <span className="font-bold text-amber-900 block mb-0.5">Observações:</span>
-                          <p className="text-amber-800">{selectedRecord.notes}</p>
+                          <p className="text-amber-800">{currentRecord.notes}</p>
                         </div>
                       )}
                     </div>
@@ -510,10 +543,10 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
 
                   {activeTab === 'sales' && (
                     <div className="space-y-2 text-xs">
-                      {(!selectedRecord.sales_snapshot || selectedRecord.sales_snapshot.length === 0) ? (
+                      {(!currentRecord.sales_snapshot || currentRecord.sales_snapshot.length === 0) ? (
                         <p className="text-slate-400 py-6 text-center">Nenhuma venda individual registrada no snapshot deste mês.</p>
                       ) : (
-                        selectedRecord.sales_snapshot.map((s) => (
+                        currentRecord.sales_snapshot.map((s) => (
                           <div
                             key={s.id}
                             className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between"
@@ -540,10 +573,10 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
 
                   {activeTab === 'expenses' && (
                     <div className="space-y-2 text-xs">
-                      {(!selectedRecord.expenses_snapshot || selectedRecord.expenses_snapshot.length === 0) ? (
+                      {(!currentRecord.expenses_snapshot || currentRecord.expenses_snapshot.length === 0) ? (
                         <p className="text-slate-400 py-6 text-center">Nenhuma despesa individual registrada no snapshot deste mês.</p>
                       ) : (
-                        selectedRecord.expenses_snapshot.map((e) => (
+                        currentRecord.expenses_snapshot.map((e) => (
                           <div
                             key={e.id}
                             className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between"
