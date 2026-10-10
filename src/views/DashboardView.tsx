@@ -21,6 +21,7 @@ import {
   Edit2,
   History,
   CalendarCheck2,
+  RotateCcw,
 } from 'lucide-react';
 import { AiInsightsPanel } from '../components/AiInsightsPanel';
 import { storage } from '../services/storage';
@@ -254,6 +255,58 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Closed Months Banner with Quick Return Option */}
+      {(() => {
+        const closingState = storage.getMonthlyClosingState();
+        const closedMonths = closingState.closed_months || [];
+        if (closedMonths.length === 0) return null;
+        return (
+          <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-950 shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-3">
+              <span className="p-2.5 rounded-xl bg-amber-200 text-amber-900 shrink-0">
+                <CalendarCheck2 className="w-5 h-5" />
+              </span>
+              <div>
+                <h4 className="text-xs sm:text-sm font-black text-amber-950">
+                  Mês(es) Fechado(s): {closedMonths.join(', ')}
+                </h4>
+                <p className="text-[11px] text-amber-800">
+                  Os dados deste período foram esvaziados do painel ativo e arquivados com segurança no histórico.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (
+                    window.confirm(
+                      `Deseja retornar o fechamento de ${closedMonths[0]}? Todas as vendas, entregas e despesas arquivadas serão restauradas imediatamente no painel.`
+                    )
+                  ) {
+                    await storage.reopenMonthlyClosing(closedMonths[0]);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 active:scale-95 rounded-xl shadow-xs transition-all cursor-pointer"
+                title="Retornar este fechamento e reativar registros no painel"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Retornar Fechamento
+              </button>
+              {onOpenMonthlyHistory && (
+                <button
+                  type="button"
+                  onClick={onOpenMonthlyHistory}
+                  className="px-3 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-all cursor-pointer"
+                >
+                  Ver Histórico
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Filter Bar */}
       <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-3">

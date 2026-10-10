@@ -34,6 +34,11 @@ export const MonthlyClosingModal: React.FC<MonthlyClosingModalProps> = ({
   isManualTrigger = false,
 }) => {
   const [cutoffDate, setCutoffDate] = useState(() => {
+    if (targetMonth && targetMonth.includes('-')) {
+      const [y, m] = targetMonth.split('-').map(Number);
+      const lastDay = new Date(y, m, 0).getDate();
+      return `${targetMonth}-${String(lastDay).padStart(2, '0')}`;
+    }
     const d = new Date();
     return d.toISOString().split('T')[0];
   });
@@ -46,12 +51,19 @@ export const MonthlyClosingModal: React.FC<MonthlyClosingModalProps> = ({
   const sales = storage.getSales();
   const expenses = storage.getExpenses();
 
-  // Movements in target month up to cutoff date
+  // Movements in target month (full month by default unless a specific in-month cutoff date is chosen)
+  const isCutoffInMonth = !!(cutoffDate && cutoffDate.startsWith(targetMonth));
   const monthSales = sales.filter(
-    (s) => !s.is_deleted && s.sale_date.startsWith(targetMonth) && s.sale_date <= cutoffDate
+    (s) =>
+      !s.is_deleted &&
+      s.sale_date.startsWith(targetMonth) &&
+      (isCutoffInMonth ? s.sale_date <= cutoffDate : true)
   );
   const monthExpenses = expenses.filter(
-    (e) => !e.is_deleted && e.expense_date.startsWith(targetMonth) && e.expense_date <= cutoffDate
+    (e) =>
+      !e.is_deleted &&
+      e.expense_date.startsWith(targetMonth) &&
+      (isCutoffInMonth ? e.expense_date <= cutoffDate : true)
   );
 
   const totalGross = monthSales.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);

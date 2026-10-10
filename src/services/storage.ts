@@ -668,8 +668,15 @@ class StorageService {
   public getSales(): Sale[] {
     const sales = getItem<Sale[]>(STORAGE_KEYS.SALES, []);
     const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
+    const closedMonths = this.getMonthlyClosingState().closed_months || [];
     return sales
-      .filter((s) => s && !s.is_deleted && !deletedIds.includes(s.id))
+      .filter(
+        (s) =>
+          s &&
+          !s.is_deleted &&
+          !deletedIds.includes(s.id) &&
+          !closedMonths.includes((s.sale_date || '').slice(0, 7))
+      )
       .sort((a, b) => {
         const timeA = a.created_at || a.sale_date || '';
         const timeB = b.created_at || b.sale_date || '';
@@ -983,8 +990,15 @@ class StorageService {
   public getDeliveries(): Delivery[] {
     const deliveries = getItem<Delivery[]>(STORAGE_KEYS.DELIVERIES, []);
     const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+    const closedMonths = this.getMonthlyClosingState().closed_months || [];
     return deliveries
-      .filter((d) => d && !d.is_deleted && !deletedIds.includes(d.id))
+      .filter(
+        (d) =>
+          d &&
+          !d.is_deleted &&
+          !deletedIds.includes(d.id) &&
+          !closedMonths.includes((d.delivery_date || '').slice(0, 7))
+      )
       .sort((a, b) => {
         const timeA = a.created_at || a.delivery_date || '';
         const timeB = b.created_at || b.delivery_date || '';
@@ -1165,8 +1179,16 @@ class StorageService {
   public getExpenses(): Expense[] {
     const expenses = getItem<Expense[]>(STORAGE_KEYS.EXPENSES, []);
     const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+    const closedMonths = this.getMonthlyClosingState().closed_months || [];
     return expenses
-      .filter((e) => e && !e.is_deleted && !deletedIds.includes(e.id) && (!e.code || !deletedIds.includes(e.code)))
+      .filter(
+        (e) =>
+          e &&
+          !e.is_deleted &&
+          !deletedIds.includes(e.id) &&
+          (!e.code || !deletedIds.includes(e.code)) &&
+          !closedMonths.includes((e.expense_date || '').slice(0, 7))
+      )
       .sort((a, b) => {
         const timeA = a.created_at || a.expense_date || '';
         const timeB = b.created_at || b.expense_date || '';
@@ -1447,15 +1469,25 @@ class StorageService {
     const allExpenses = this.getExpenses();
     const allDeliveries = this.getDeliveries();
 
-    // 1. Identify movements for target month up to cutoffDate
+    // 1. Identify movements for target month (full month unless a valid in-month cutoff date is provided)
+    const isCutoffInMonth = !!(cutoffDate && cutoffDate.startsWith(targetMonth));
     const salesToClose = allSales.filter(
-      (s) => !s.is_deleted && s.sale_date.startsWith(targetMonth) && s.sale_date <= cutoffDate
+      (s) =>
+        !s.is_deleted &&
+        s.sale_date.startsWith(targetMonth) &&
+        (isCutoffInMonth ? s.sale_date <= cutoffDate : true)
     );
     const expensesToClose = allExpenses.filter(
-      (e) => !e.is_deleted && e.expense_date.startsWith(targetMonth) && e.expense_date <= cutoffDate
+      (e) =>
+        !e.is_deleted &&
+        e.expense_date.startsWith(targetMonth) &&
+        (isCutoffInMonth ? e.expense_date <= cutoffDate : true)
     );
     const deliveriesToClose = allDeliveries.filter(
-      (d) => !d.is_deleted && d.delivery_date.startsWith(targetMonth) && d.delivery_date <= cutoffDate
+      (d) =>
+        !d.is_deleted &&
+        d.delivery_date.startsWith(targetMonth) &&
+        (isCutoffInMonth ? d.delivery_date <= cutoffDate : true)
     );
 
     // Month label
@@ -1494,7 +1526,7 @@ class StorageService {
       sales_snapshot: salesToClose,
       expenses_snapshot: expensesToClose,
       deliveries_snapshot: deliveriesToClose,
-      notes: notes || `Fechamento do mês ${monthLabel} concluído até o dia ${cutoffDate}.`,
+      notes: notes || (isCutoffInMonth ? `Fechamento do mês ${monthLabel} concluído até o dia ${cutoffDate}.` : `Fechamento completo do mês ${monthLabel}.`),
     };
 
     // 2. Update state & history
@@ -1619,43 +1651,17 @@ class StorageService {
     }
 
     const rawSales = record.sales_snapshot || [];
-    const salesToRestore = rawSales.map((s) => {
-      const safeId = s.id.endsWith('-ret') ? s.id : `${s.id}-ret`;
-      return { ...s, id: safeId };
-    });
-    const saleIdMap = new Map<string, string>();
-    rawSales.forEach((s, idx) => {
-      saleIdMap.set(s.id, salesToRestore[idx].id);
-    });
+    const salesToRestore = rawSales.map((s) => ({ ...s }));
 
     const rawDeliveries = record.deliveries_snapshot || [];
-    const deliveriesToRestore = rawDeliveries.map((d) => {
-      const safeId = d.id.endsWith('-ret') ? d.id : `${d.id}-ret`;
-      return {
-        ...d,
-        id: safeId,
-        sale_id: saleIdMap.get(d.sale_id) || d.sale_id,
-      };
-    });
+    const deliveriesToRestore = rawDeliveries.map((d) => ({ ...d }));
 
     const rawExpenses = record.expenses_snapshot || [];
-    const expensesToRestore = rawExpenses.map((e) => {
-      const safeId = e.id.endsWith('-ret') ? e.id : `${e.id}-ret`;
-      return { ...e, id: safeId };
-    });
+    const expensesToRestore = rawExpenses.map((e) => ({ ...e }));
 
-    const salesIdsToRestore = new Set([
-      ...rawSales.map((s) => s.id),
-      ...salesToRestore.map((s) => s.id),
-    ]);
-    const expensesIdsToRestore = new Set([
-      ...rawExpenses.map((e) => e.id),
-      ...expensesToRestore.map((e) => e.id),
-    ]);
-    const deliveriesIdsToRestore = new Set([
-      ...rawDeliveries.map((d) => d.id),
-      ...deliveriesToRestore.map((d) => d.id),
-    ]);
+    const salesIdsToRestore = new Set(salesToRestore.map((s) => s.id));
+    const expensesIdsToRestore = new Set(expensesToRestore.map((e) => e.id));
+    const deliveriesIdsToRestore = new Set(deliveriesToRestore.map((d) => d.id));
 
     // 1. Remove restored IDs from deleted trackers
     const deletedSalesIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []).filter(
