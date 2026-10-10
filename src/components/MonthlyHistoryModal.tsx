@@ -16,6 +16,10 @@ import {
   Clock,
   Printer,
   Archive,
+  RotateCcw,
+  AlertTriangle,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
 import { MonthlyClosingRecord } from '../types';
 import { storage } from '../services/storage';
@@ -37,10 +41,16 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
   const [filterMonth, setFilterMonth] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'summary' | 'sales' | 'expenses'>('summary');
+  const [reopeningRecord, setReopeningRecord] = useState<MonthlyClosingRecord | null>(null);
+  const [isReopeningAll, setIsReopeningAll] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const history = storage.getMonthlyClosingHistory();
+  const closingState = storage.getMonthlyClosingState();
+  const closedMonthsSet = new Set(closingState.closed_months || []);
 
   const filteredHistory = history.filter((item) => {
     if (filterMonth && item.month !== filterMonth) return false;
@@ -54,6 +64,54 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
     }
     return true;
   });
+
+  const handleExecuteReopen = async (record: MonthlyClosingRecord) => {
+    setIsProcessing(true);
+    try {
+      await storage.reopenMonthlyClosing(record.month);
+      setFeedbackMessage(
+        `Fechamento de ${record.month_label} retornado com sucesso! Todas as vendas, entregas e despesas foram reativadas no painel.`
+      );
+      setReopeningRecord(null);
+      setTimeout(() => setFeedbackMessage(null), 6000);
+    } catch (err) {
+      console.error('Erro ao retornar fechamento:', err);
+      alert('Ocorreu um erro ao processar o retorno do fechamento.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleExecuteReopenAll = async () => {
+    setIsProcessing(true);
+    try {
+      const count = await storage.reopenAllMonthlyClosings();
+      setFeedbackMessage(
+        `Todos os fechamentos (${count}) foram retornados com sucesso! Todos os registros voltaram ao painel ativo.`
+      );
+      setIsReopeningAll(false);
+      setTimeout(() => setFeedbackMessage(null), 6000);
+    } catch (err) {
+      console.error('Erro ao retornar todos os fechamentos:', err);
+      alert('Ocorreu um erro ao retornar todos os fechamentos.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteRecord = async (record: MonthlyClosingRecord) => {
+    if (
+      !window.confirm(
+        `Deseja realmente remover o registro de fechamento de ${record.month_label} do histórico permanente? Esta ação não pode ser desfeita.`
+      )
+    ) {
+      return;
+    }
+    await storage.deleteMonthlyClosingRecord(record.id);
+    if (selectedRecord?.id === record.id) {
+      setSelectedRecord(null);
+    }
+  };
 
   const handleExportSingleMonth = (record: MonthlyClosingRecord) => {
     const salesData = (record.sales_snapshot || []).map((s) => ({
@@ -126,6 +184,18 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {history.length > 0 && (
+              <button
+                onClick={() => setIsReopeningAll(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-xs transition-all cursor-pointer"
+                title="Retornar todos os fechamentos arquivados para o painel ativo"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span className="hidden sm:inline">Retornar Todos</span>
+                <span className="sm:hidden">Retornar</span>
+              </button>
+            )}
+
             <button
               onClick={handleExportAllHistory}
               disabled={history.length === 0}
@@ -138,13 +208,29 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
 
             <button
               onClick={onClose}
-              className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+              className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
               title="Fechar"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
+
+        {/* Feedback Alert Banner */}
+        {feedbackMessage && (
+          <div className="bg-emerald-600 text-white px-4 py-2.5 text-xs font-bold flex items-center justify-between shadow-xs shrink-0 animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+              <span>{feedbackMessage}</span>
+            </div>
+            <button
+              onClick={() => setFeedbackMessage(null)}
+              className="p-1 hover:bg-emerald-700 rounded-md transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Content layout: Left list / Right detail */}
         <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 min-h-0">
@@ -177,6 +263,7 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
               ) : (
                 filteredHistory.map((rec) => {
                   const isSelected = selectedRecord?.id === rec.id;
+                  const isClosed = closedMonthsSet.has(rec.month);
                   return (
                     <div
                       key={rec.id}
@@ -191,9 +278,20 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                         <span className="font-extrabold text-sm text-slate-900">
                           {rec.month_label}
                         </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                          {rec.month}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {rec.is_reopened ? (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                              Retornado
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                              Fechado
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                            {rec.month}
+                          </span>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-[11px] mt-2">
@@ -209,9 +307,22 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100 text-[10px] text-slate-400">
-                        <span>{rec.sales_count} vendas • {formatNumber(rec.total_boxes)} cx</span>
-                        <span className="text-slate-500 font-medium">Por: {rec.closed_by}</span>
+                      <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100 text-[10px]">
+                        <span className="text-slate-500 font-medium">
+                          {rec.sales_count} vendas • {formatNumber(rec.total_boxes)} cx
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReopeningRecord(rec);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-black text-amber-950 bg-amber-300 hover:bg-amber-400 rounded-lg shadow-2xs transition-all cursor-pointer"
+                          title="Retornar este fechamento para o painel ativo"
+                        >
+                          <RotateCcw className="w-3 h-3 text-amber-900" />
+                          Retornar
+                        </button>
                       </div>
                     </div>
                   );
@@ -227,9 +338,21 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                 {/* Detail Header */}
                 <div className="p-4 sm:p-5 border-b border-slate-200 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
                   <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-sky-700 bg-sky-100 px-2 py-0.5 rounded-md">
-                      Fechamento Oficial Apurado
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-sky-700 bg-sky-100 px-2 py-0.5 rounded-md">
+                        Fechamento Mensal
+                      </span>
+                      {selectedRecord.is_reopened ? (
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Retornado / Reaberto
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                          Fechado
+                        </span>
+                      )}
+                    </div>
                     <h3 className="text-lg font-black text-slate-900 mt-1">
                       {selectedRecord.month_label}
                     </h3>
@@ -238,7 +361,16 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setReopeningRecord(selectedRecord)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 rounded-xl shadow-xs transition-all cursor-pointer"
+                      title="Retornar este fechamento e reativar vendas no painel"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-950" />
+                      Retornar Fechamento
+                    </button>
+
                     <button
                       onClick={() => handleExportSingleMonth(selectedRecord)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl shadow-2xs transition-all cursor-pointer"
@@ -259,8 +391,27 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
                         Ver DRE
                       </button>
                     )}
+
+                    <button
+                      onClick={() => handleDeleteRecord(selectedRecord)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                      title="Excluir este registro do arquivo"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
+
+                {selectedRecord.is_reopened && (
+                  <div className="mx-4 sm:mx-5 mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>
+                        <strong>Fechamento retornado:</strong> As {selectedRecord.sales_count} vendas e movimentações deste mês estão ativas e disponíveis no sistema.
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Subtabs for Detail */}
                 <div className="px-5 border-b border-slate-200 flex items-center gap-4 text-xs font-bold shrink-0">
@@ -428,6 +579,140 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal for Single Reopen */}
+      {reopeningRecord && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="p-2.5 rounded-2xl bg-amber-100 text-amber-800">
+                <RotateCcw className="w-6 h-6" />
+              </span>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 font-sans">
+                  Retornar Fechamento
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  {reopeningRecord.month_label} ({reopeningRecord.month})
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-950 space-y-2">
+              <p className="font-bold text-amber-900">
+                Esta ação reverterá o fechamento deste mês:
+              </p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>
+                  <strong>{reopeningRecord.sales_count} vendas</strong> ({formatCurrency(reopeningRecord.gross_revenue)}) voltarão imediatamente para as listagens ativas e dashboard.
+                </li>
+                <li>
+                  <strong>{reopeningRecord.expenses_count} despesas</strong> ({formatCurrency(reopeningRecord.total_expenses)}) serão reativadas no módulo financeiro.
+                </li>
+                <li>
+                  O mês será marcado como <strong>reaberto</strong> para permitir novos lançamentos e edições.
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={() => setReopeningRecord(null)}
+                className="px-4 py-2.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={() => handleExecuteReopen(reopeningRecord)}
+                className="flex items-center gap-2 px-4 py-2.5 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 active:scale-95 rounded-xl shadow-md shadow-amber-400/30 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Retornando...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    Confirmar e Retornar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Reopen All */}
+      {isReopeningAll && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="p-2.5 rounded-2xl bg-amber-100 text-amber-800">
+                <RotateCcw className="w-6 h-6" />
+              </span>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 font-sans">
+                  Retornar Todos os Fechamentos
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Reabertura geral de todos os meses arquivados
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-950 space-y-2">
+              <p className="font-bold text-amber-900">
+                Deseja retornar todos os meses arquivados?
+              </p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>
+                  Todas as vendas arquivadas em snapshots serão restauradas nas tabelas de vendas ativas e sincronizadas no banco.
+                </li>
+                <li>
+                  Todas as despesas arquivadas voltarão às listagens de custos operacionais.
+                </li>
+                <li>
+                  Todos os meses ficarão ativos para consulta e novos lançamentos no sistema.
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={() => setIsReopeningAll(false)}
+                className="px-4 py-2.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={handleExecuteReopenAll}
+                className="flex items-center gap-2 px-4 py-2.5 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-300 active:scale-95 rounded-xl shadow-md shadow-amber-400/30 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    Confirmar e Retornar Todos
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -284,6 +284,9 @@ export interface MonthlyClosingRecord {
   expenses_snapshot: Expense[];
   deliveries_snapshot: Delivery[];
   notes?: string;
+  is_reopened?: boolean;
+  reopened_at?: string;
+  reopened_by?: string;
 }
 
 export interface MonthlyClosingState {

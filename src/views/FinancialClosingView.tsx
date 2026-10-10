@@ -15,6 +15,8 @@ import {
   Droplets,
   History,
   CalendarCheck2,
+  RotateCcw,
+  Loader2,
 } from 'lucide-react';
 import { storage } from '../services/storage';
 import { formatCurrency, formatDate, formatNumber } from '../utils/formatters';
@@ -47,6 +49,11 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
 
   const sales = storage.getSales();
   const expenses = storage.getExpenses();
+  const [isReopening, setIsReopening] = useState(false);
+
+  const closingState = storage.getMonthlyClosingState();
+  const isSelectedMonthClosed = (closingState.closed_months || []).includes(selectedMonth);
+  const closingRecordForSelectedMonth = (closingState.history || []).find((h) => h.month === selectedMonth);
 
   // Filter for selected month
   const monthSales = useMemo(() => {
@@ -146,6 +153,25 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
     );
   };
 
+  const handleReopenThisMonth = async () => {
+    if (
+      !window.confirm(
+        `Deseja retornar o fechamento de ${monthLabel}? Todas as vendas e despesas arquivadas voltarão imediatamente para as listagens ativas do sistema.`
+      )
+    ) {
+      return;
+    }
+    setIsReopening(true);
+    try {
+      await storage.reopenMonthlyClosing(selectedMonth);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao processar o retorno do fechamento.');
+    } finally {
+      setIsReopening(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -206,6 +232,54 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Closed Month Alert Banner */}
+      {isSelectedMonthClosed && (
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-950 animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 bg-amber-100 text-amber-800 rounded-xl shrink-0">
+              <RotateCcw className="w-5 h-5" />
+            </span>
+            <div>
+              <h4 className="font-black text-sm text-amber-950">
+                Mês Fechado e Arquivado ({monthLabel})
+              </h4>
+              <p className="text-xs text-amber-900/90 mt-0.5">
+                As vendas e movimentações deste mês foram arquivadas. Você pode retornar este fechamento para reativá-las imediatamente no painel.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleReopenThisMonth}
+            disabled={isReopening}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-amber-950 bg-amber-400 hover:bg-amber-300 active:scale-95 rounded-xl shadow-xs transition-all cursor-pointer shrink-0 disabled:opacity-50"
+          >
+            {isReopening ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Retornando...
+              </>
+            ) : (
+              <>
+                <RotateCcw className="w-4 h-4" />
+                Retornar Fechamento
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Reopened Pill */}
+      {closingRecordForSelectedMonth?.is_reopened && !isSelectedMonthClosed && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3 text-emerald-950 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="text-xs font-bold text-emerald-900">
+              Fechamento retornado: este mês está aberto e todas as movimentações estão disponíveis no painel ativo ({monthSales.length} vendas ativas).
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Top Banner with Big Result */}
       <div

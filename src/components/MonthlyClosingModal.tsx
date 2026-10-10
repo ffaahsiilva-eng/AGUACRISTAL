@@ -122,7 +122,10 @@ export const MonthlyClosingModal: React.FC<MonthlyClosingModalProps> = ({
                   Como funciona esta etapa:
                 </div>
                 <p className="text-amber-900 leading-relaxed text-[11px] sm:text-xs">
-                  Ao escolher <strong>&quot;FECHAR O MÊS&quot;</strong>, todos os valores de vendas, entregas e despesas apurados até o dia selecionado serão <strong>zerados do painel ativo</strong> e arquivados com segurança no <strong>Histórico Mensal</strong> para consulta, filtros e download a qualquer momento.
+                  Ao escolher <strong>&quot;FECHAR O MÊS&quot;</strong>, todos os valores de vendas, entregas e despesas apurados até o dia selecionado serão <strong>zerados do painel ativo</strong> e arquivados com segurança no <strong>Histórico Mensal</strong>.
+                </p>
+                <p className="text-amber-900 leading-relaxed text-[11px] sm:text-xs font-semibold">
+                  Caso precise rever lançamentos depois, você pode <strong>Retornar o Fechamento</strong> a qualquer momento pelo Histórico, restaurando todas as vendas e despesas de volta ao sistema ativo!
                 </p>
                 <p className="text-amber-900/90 text-[10px] sm:text-[11px]">
                   Caso escolha <strong>&quot;Continuar Lançando&quot;</strong>, este aviso será exibido diariamente até você confirmar o fechamento. Após fechar, a janela só voltará a aparecer no dia 2 do próximo mês!

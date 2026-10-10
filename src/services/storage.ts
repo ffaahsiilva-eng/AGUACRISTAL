@@ -121,10 +121,7 @@ class StorageService {
       const items: Sale[] = [];
       snapshot.forEach((docSnap) => {
         const item = docSnap.data() as Sale;
-        if (deletedIds.includes(item.id) || item.is_deleted) {
-          // Asynchronously purge from Firestore if it somehow still exists
-          deleteDoc(docSnap.ref).catch(() => {});
-        } else {
+        if (!deletedIds.includes(item.id) && !item.is_deleted) {
           items.push(item);
         }
       });
@@ -143,9 +140,7 @@ class StorageService {
       const items: Delivery[] = [];
       snapshot.forEach((docSnap) => {
         const item = docSnap.data() as Delivery;
-        if (deletedIds.includes(item.id) || item.is_deleted) {
-          deleteDoc(docSnap.ref).catch(() => {});
-        } else {
+        if (!deletedIds.includes(item.id) && !item.is_deleted) {
           items.push(item);
         }
       });
@@ -171,9 +166,7 @@ class StorageService {
           (item.id && deletedIds.includes(item.id)) ||
           (item.code && deletedIds.includes(item.code));
 
-        if (isDeleted) {
-          deleteDoc(docSnap.ref).catch(() => {});
-        } else {
+        if (!isDeleted) {
           items.push({ ...item, id: item.id || docSnap.id });
         }
       });
@@ -192,32 +185,31 @@ class StorageService {
       if (docSnap.exists()) {
         const data = docSnap.data();
         let changed = false;
-        if (Array.isArray(data?.deleted_expense_ids) && data.deleted_expense_ids.length > 0) {
-          const localDeleted = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
-          const merged = Array.from(new Set([...localDeleted, ...data.deleted_expense_ids]));
-          if (merged.length !== localDeleted.length) {
-            setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, merged);
-            changed = true;
-          }
+        if (Array.isArray(data?.deleted_expense_ids)) {
+          setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, data.deleted_expense_ids);
+          changed = true;
           const localExpenses = getItem<Expense[]>(STORAGE_KEYS.EXPENSES, []);
-          const cleaned = localExpenses.filter(e => e && !merged.includes(e.id) && (!e.code || !merged.includes(e.code)));
+          const cleaned = localExpenses.filter(e => e && !data.deleted_expense_ids.includes(e.id) && (!e.code || !data.deleted_expense_ids.includes(e.code)));
           if (cleaned.length !== localExpenses.length) {
             setItem(STORAGE_KEYS.EXPENSES, cleaned);
-            changed = true;
           }
         }
-        if (Array.isArray(data?.deleted_sales_ids) && data.deleted_sales_ids.length > 0) {
-          const localDeleted = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
-          const merged = Array.from(new Set([...localDeleted, ...data.deleted_sales_ids]));
-          if (merged.length !== localDeleted.length) {
-            setItem(STORAGE_KEYS.DELETED_SALES_IDS, merged);
-            changed = true;
-          }
+        if (Array.isArray(data?.deleted_sales_ids)) {
+          setItem(STORAGE_KEYS.DELETED_SALES_IDS, data.deleted_sales_ids);
+          changed = true;
           const localSales = getItem<Sale[]>(STORAGE_KEYS.SALES, []);
-          const cleaned = localSales.filter(s => s && !merged.includes(s.id) && (!s.code || !merged.includes(s.code)));
+          const cleaned = localSales.filter(s => s && !data.deleted_sales_ids.includes(s.id) && (!s.code || !data.deleted_sales_ids.includes(s.code)));
           if (cleaned.length !== localSales.length) {
             setItem(STORAGE_KEYS.SALES, cleaned);
-            changed = true;
+          }
+        }
+        if (Array.isArray(data?.deleted_delivery_ids)) {
+          setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, data.deleted_delivery_ids);
+          changed = true;
+          const localDeliveries = getItem<Delivery[]>(STORAGE_KEYS.DELIVERIES, []);
+          const cleaned = localDeliveries.filter(d => d && !data.deleted_delivery_ids.includes(d.id) && (!d.code || !data.deleted_delivery_ids.includes(d.code)));
+          if (cleaned.length !== localDeliveries.length) {
+            setItem(STORAGE_KEYS.DELIVERIES, cleaned);
           }
         }
         if (changed) {
@@ -241,9 +233,7 @@ class StorageService {
       const items: any[] = [];
       snapshot.forEach((docSnap) => {
         const item = docSnap.data() as Client;
-        if (deletedIds.includes(item.id) || item.is_deleted) {
-          deleteDoc(docSnap.ref).catch(() => {});
-        } else {
+        if (!deletedIds.includes(item.id) && !item.is_deleted) {
           items.push(item);
         }
       });
@@ -258,9 +248,7 @@ class StorageService {
       const items: any[] = [];
       snapshot.forEach((docSnap) => {
         const item = docSnap.data() as Driver;
-        if (deletedIds.includes(item.id) || item.is_deleted) {
-          deleteDoc(docSnap.ref).catch(() => {});
-        } else {
+        if (!deletedIds.includes(item.id) && !item.is_deleted) {
           items.push(item);
         }
       });
@@ -1613,6 +1601,246 @@ class StorageService {
     }
 
     return closingRecord;
+  }
+
+  public async reopenMonthlyClosing(
+    targetMonthOrId: string
+  ): Promise<MonthlyClosingRecord | null> {
+    const currentUser = this.getCurrentUser();
+    const state = this.getMonthlyClosingState();
+    const history = this.getMonthlyClosingHistory();
+
+    const record = history.find(
+      (h) => h.month === targetMonthOrId || h.id === targetMonthOrId
+    );
+    if (!record) {
+      console.warn(`Fechamento para ${targetMonthOrId} não encontrado no histórico.`);
+      return null;
+    }
+
+    const rawSales = record.sales_snapshot || [];
+    const salesToRestore = rawSales.map((s) => {
+      const safeId = s.id.endsWith('-ret') ? s.id : `${s.id}-ret`;
+      return { ...s, id: safeId };
+    });
+    const saleIdMap = new Map<string, string>();
+    rawSales.forEach((s, idx) => {
+      saleIdMap.set(s.id, salesToRestore[idx].id);
+    });
+
+    const rawDeliveries = record.deliveries_snapshot || [];
+    const deliveriesToRestore = rawDeliveries.map((d) => {
+      const safeId = d.id.endsWith('-ret') ? d.id : `${d.id}-ret`;
+      return {
+        ...d,
+        id: safeId,
+        sale_id: saleIdMap.get(d.sale_id) || d.sale_id,
+      };
+    });
+
+    const rawExpenses = record.expenses_snapshot || [];
+    const expensesToRestore = rawExpenses.map((e) => {
+      const safeId = e.id.endsWith('-ret') ? e.id : `${e.id}-ret`;
+      return { ...e, id: safeId };
+    });
+
+    const salesIdsToRestore = new Set([
+      ...rawSales.map((s) => s.id),
+      ...salesToRestore.map((s) => s.id),
+    ]);
+    const expensesIdsToRestore = new Set([
+      ...rawExpenses.map((e) => e.id),
+      ...expensesToRestore.map((e) => e.id),
+    ]);
+    const deliveriesIdsToRestore = new Set([
+      ...rawDeliveries.map((d) => d.id),
+      ...deliveriesToRestore.map((d) => d.id),
+    ]);
+
+    // 1. Remove restored IDs from deleted trackers
+    const deletedSalesIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []).filter(
+      (id) => !salesIdsToRestore.has(id)
+    );
+    setItem(STORAGE_KEYS.DELETED_SALES_IDS, deletedSalesIds);
+
+    const deletedExpensesIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []).filter(
+      (id) => !expensesIdsToRestore.has(id)
+    );
+    setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, deletedExpensesIds);
+
+    const deletedDeliveriesIds = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []).filter(
+      (id) => !deliveriesIdsToRestore.has(id)
+    );
+    setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, deletedDeliveriesIds);
+
+    // 2. Merge back into local active collections (prevent duplicates)
+    const currentSales = this.getSales();
+    const existingSaleIds = new Set(currentSales.map((s) => s.id));
+    const mergedSales = [
+      ...salesToRestore.filter((s) => !existingSaleIds.has(s.id)),
+      ...currentSales,
+    ];
+    mergedSales.sort((a, b) => {
+      const timeA = a.created_at || a.sale_date || '';
+      const timeB = b.created_at || b.sale_date || '';
+      if (timeB !== timeA) return timeB.localeCompare(timeA);
+      return (b.code || '').localeCompare(a.code || '');
+    });
+    setItem(STORAGE_KEYS.SALES, mergedSales);
+
+    const currentExpenses = this.getExpenses();
+    const existingExpenseIds = new Set(currentExpenses.map((e) => e.id));
+    const mergedExpenses = [
+      ...expensesToRestore.filter((e) => !existingExpenseIds.has(e.id)),
+      ...currentExpenses,
+    ];
+    mergedExpenses.sort((a, b) => {
+      const timeA = a.created_at || a.expense_date || '';
+      const timeB = b.created_at || b.expense_date || '';
+      if (timeB !== timeA) return timeB.localeCompare(timeA);
+      return (b.code || '').localeCompare(a.code || '');
+    });
+    setItem(STORAGE_KEYS.EXPENSES, mergedExpenses);
+
+    const currentDeliveries = this.getDeliveries();
+    const existingDeliveryIds = new Set(currentDeliveries.map((d) => d.id));
+    const mergedDeliveries = [
+      ...deliveriesToRestore.filter((d) => !existingDeliveryIds.has(d.id)),
+      ...currentDeliveries,
+    ];
+    mergedDeliveries.sort((a, b) => {
+      const timeA = a.created_at || a.delivery_date || '';
+      const timeB = b.delivery_date || '';
+      if (timeB !== timeA) return timeB.localeCompare(timeA);
+      return (b.code || '').localeCompare(a.code || '');
+    });
+    setItem(STORAGE_KEYS.DELIVERIES, mergedDeliveries);
+
+    // 3. Update state & history (mark reopened and remove from closed_months)
+    state.closed_months = (state.closed_months || []).filter((m) => m !== record.month);
+    const updatedRecord: MonthlyClosingRecord = {
+      ...record,
+      is_reopened: true,
+      reopened_at: new Date().toISOString(),
+      reopened_by: currentUser.name || 'Administrador',
+    };
+
+    const updatedHistory = history.map((h) =>
+      h.id === record.id || h.month === record.month ? updatedRecord : h
+    );
+    state.history = updatedHistory;
+
+    setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, state);
+    setItem(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, updatedHistory);
+
+    this.logAudit(
+      'Alteração',
+      'Configuração',
+      record.id,
+      `Fechamento do mês ${record.month_label} retornado com sucesso. ${salesToRestore.length} vendas, ${expensesToRestore.length} despesas e ${deliveriesToRestore.length} entregas reativadas no painel.`
+    );
+
+    notifyStorageChange();
+
+    // 4. Batch persist to Firestore
+    try {
+      await setDoc(doc(db, 'settings', 'monthly_closing'), state);
+      await setDoc(doc(db, 'settings', 'deleted_records'), {
+        deleted_sales_ids: deletedSalesIds,
+        deleted_expense_ids: deletedExpensesIds,
+        deleted_delivery_ids: deletedDeliveriesIds,
+        updated_at: new Date().toISOString(),
+      });
+
+      // Update doc in monthly_closings
+      await setDoc(doc(db, 'monthly_closings', record.month), updatedRecord);
+
+      // Re-add items in batches to firestore collections
+      const maxBatch = 400;
+      let batch = writeBatch(db);
+      let count = 0;
+
+      for (const sale of salesToRestore) {
+        batch.set(doc(db, 'sales', sale.id), sale);
+        count++;
+        if (count >= maxBatch) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+
+      for (const expense of expensesToRestore) {
+        batch.set(doc(db, 'expenses', expense.id), expense);
+        count++;
+        if (count >= maxBatch) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+
+      for (const delivery of deliveriesToRestore) {
+        batch.set(doc(db, 'deliveries', delivery.id), delivery);
+        count++;
+        if (count >= maxBatch) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+
+      if (count > 0) {
+        await batch.commit();
+      }
+    } catch (err) {
+      console.error('Erro ao persistir retorno de fechamento no Firestore:', err);
+    }
+
+    return updatedRecord;
+  }
+
+  public async reopenAllMonthlyClosings(): Promise<number> {
+    const state = this.getMonthlyClosingState();
+    const history = this.getMonthlyClosingHistory();
+    const targets = new Set<string>();
+
+    (state.closed_months || []).forEach((m) => targets.add(m));
+    history.filter((h) => !h.is_reopened).forEach((h) => targets.add(h.month));
+
+    let count = 0;
+    for (const month of Array.from(targets)) {
+      await this.reopenMonthlyClosing(month);
+      count++;
+    }
+    return count;
+  }
+
+  public async deleteMonthlyClosingRecord(recordIdOrMonth: string): Promise<void> {
+    const state = this.getMonthlyClosingState();
+    const history = this.getMonthlyClosingHistory();
+
+    const target = history.find(
+      (h) => h.id === recordIdOrMonth || h.month === recordIdOrMonth
+    );
+    const month = target ? target.month : recordIdOrMonth;
+
+    state.closed_months = (state.closed_months || []).filter((m) => m !== month);
+    const updatedHistory = history.filter(
+      (h) => h.id !== recordIdOrMonth && h.month !== recordIdOrMonth
+    );
+    state.history = updatedHistory;
+
+    setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, state);
+    setItem(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, updatedHistory);
+    notifyStorageChange();
+
+    try {
+      await setDoc(doc(db, 'settings', 'monthly_closing'), state);
+      await deleteDoc(doc(db, 'monthly_closings', month));
+    } catch (err) {
+      console.error('Erro ao excluir registro de fechamento:', err);
+    }
   }
 
   public exportBackupJSON(): string {
