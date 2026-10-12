@@ -259,8 +259,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Closed Months Banner with Quick Return Option */}
       {(() => {
         const closingState = storage.getMonthlyClosingState();
+        const history = storage.getMonthlyClosingHistory();
         const closedMonths = (closingState.closed_months || []).filter((m) => {
-          const rec = (closingState.history || []).find((h) => h.month === m);
+          const rec = (history || []).find((h) => h.month === m);
           return !rec?.is_reopened;
         });
         if (closedMonths.length === 0) return null;

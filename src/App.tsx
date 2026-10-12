@@ -709,6 +709,7 @@ export function App() {
 
             {(activeTab === 'monthly-closing' || activeTab === 'finance') && (
               <FinancialClosingView
+                key={dataVersion}
                 onPrintClosingReport={handlePrintClosingReport}
                 onOpenMonthlyHistory={() => setIsMonthlyHistoryModalOpen(true)}
                 onOpenMonthlyClosing={(month?: string) => handleOpenMonthlyClosing(month)}

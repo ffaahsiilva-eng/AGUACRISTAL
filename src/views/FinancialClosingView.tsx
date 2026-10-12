@@ -47,12 +47,22 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
     }
   }, [initialMonth]);
 
+  const [, setStorageVersion] = useState(0);
+
+  React.useEffect(() => {
+    const unsub = storage.subscribe(() => {
+      setStorageVersion((v) => v + 1);
+    });
+    return unsub;
+  }, []);
+
   const sales = storage.getSales();
   const expenses = storage.getExpenses();
   const [isReopening, setIsReopening] = useState(false);
 
   const closingState = storage.getMonthlyClosingState();
-  const closingRecordForSelectedMonth = (closingState.history || []).find((h) => h.month === selectedMonth);
+  const history = storage.getMonthlyClosingHistory();
+  const closingRecordForSelectedMonth = (history || []).find((h) => h.month === selectedMonth);
   const isSelectedMonthClosed =
     (closingState.closed_months || []).includes(selectedMonth) &&
     !closingRecordForSelectedMonth?.is_reopened;
