@@ -448,15 +448,12 @@ class StorageService {
   }
 
   public init() {
-    const DATA_VERSION = "v_real_data_imperatriz_2026_10_v2";
+    const DATA_VERSION = "v_real_data_imperatriz_2026_10_v3";
     const currentVersion = getItem<string | null>("acs_data_version", null);
     const existingSales = getItem<Sale[] | null>(STORAGE_KEYS.SALES, null);
 
     if (!existingSales || currentVersion !== DATA_VERSION) {
       const initial = generateInitialData();
-      const deletedExpenseIds = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
-      const deletedSalesIds = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
-      const deletedDeliveryIds = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
 
       setItem(STORAGE_KEYS.USERS, initial.users);
       setItem(STORAGE_KEYS.CURRENT_USER, initial.currentUser);
@@ -465,20 +462,16 @@ class StorageService {
       setItem(STORAGE_KEYS.DRIVERS, initial.drivers);
       setItem(STORAGE_KEYS.VEHICLES, initial.vehicles);
       setItem(STORAGE_KEYS.CLIENTS, initial.clients);
-      setItem(
-        STORAGE_KEYS.SALES,
-        initial.sales.filter((s) => !deletedSalesIds.includes(s.id) && (!s.code || !deletedSalesIds.includes(s.code)))
-      );
-      setItem(
-        STORAGE_KEYS.DELIVERIES,
-        initial.deliveries.filter((d) => !deletedDeliveryIds.includes(d.id) && (!d.code || !deletedDeliveryIds.includes(d.code)))
-      );
-      setItem(
-        STORAGE_KEYS.EXPENSES,
-        initial.expenses.filter((e) => !deletedExpenseIds.includes(e.id) && (!e.code || !deletedExpenseIds.includes(e.code)))
-      );
+      setItem(STORAGE_KEYS.SALES, initial.sales);
+      setItem(STORAGE_KEYS.DELIVERIES, initial.deliveries);
+      setItem(STORAGE_KEYS.EXPENSES, initial.expenses);
       setItem(STORAGE_KEYS.PAYMENTS, initial.payments);
       setItem(STORAGE_KEYS.AUDIT_LOGS, initial.auditLogs);
+      setItem(STORAGE_KEYS.DELETED_SALES_IDS, []);
+      setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+      setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+      setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, { closed_months: [], history: [] });
+      setItem(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, []);
       setItem("acs_data_version", DATA_VERSION);
     }
 
@@ -489,41 +482,6 @@ class StorageService {
         currentSettings.require_admin_approval_for_new_users = false;
         setItem(STORAGE_KEYS.SETTINGS, currentSettings);
         setItem('acs_approval_patched', 'true');
-      }
-    }
-
-    // Always clean stale deleted tracking and guarantee sales for reopened months
-    const history = this.getMonthlyClosingHistory();
-    const reopened = history.filter((h) => h.is_reopened);
-    if (reopened.length > 0) {
-      const restoredSaleIds = new Set<string>();
-      const restoredDelivIds = new Set<string>();
-      const restoredExpIds = new Set<string>();
-      for (const r of reopened) {
-        (r.sales_snapshot || []).forEach((s) => restoredSaleIds.add(s.id));
-        (r.deliveries_snapshot || []).forEach((d) => restoredDelivIds.add(d.id));
-        (r.expenses_snapshot || []).forEach((e) => restoredExpIds.add(e.id));
-      }
-      const curDelSales = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
-      setItem(STORAGE_KEYS.DELETED_SALES_IDS, curDelSales.filter((id) => !restoredSaleIds.has(id)));
-      const curDelDeliv = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
-      setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, curDelDeliv.filter((id) => !restoredDelivIds.has(id)));
-      const curDelExp = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
-      setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, curDelExp.filter((id) => !restoredExpIds.has(id)));
-
-      const curSales = getItem<Sale[]>(STORAGE_KEYS.SALES, []);
-      const existingSaleIds = new Set(curSales.map((s) => s.id));
-      const salesToAdd: Sale[] = [];
-      for (const r of reopened) {
-        for (const s of r.sales_snapshot || []) {
-          if (!existingSaleIds.has(s.id) && !s.is_deleted) {
-            salesToAdd.push(s);
-            existingSaleIds.add(s.id);
-          }
-        }
-      }
-      if (salesToAdd.length > 0) {
-        setItem(STORAGE_KEYS.SALES, [...salesToAdd, ...curSales]);
       }
     }
   }
@@ -2190,6 +2148,36 @@ class StorageService {
       await deleteDoc(doc(db, 'monthly_closings', month));
     } catch (err) {
       console.error('Erro ao excluir registro de fechamento:', err);
+    }
+  }
+
+  public async clearAllMonthlyClosingHistory(): Promise<void> {
+    const emptyState: MonthlyClosingState = {
+      closed_months: [],
+      history: [],
+      updated_at: new Date().toISOString(),
+    };
+    setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, emptyState);
+    setItem(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, []);
+    setItem(STORAGE_KEYS.DELETED_SALES_IDS, []);
+    setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+    setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+    notifyStorageChange();
+
+    try {
+      await setDoc(doc(db, 'settings', 'monthly_closing'), emptyState);
+      await setDoc(doc(db, 'settings', 'deleted_records'), {
+        deleted_sales_ids: [],
+        deleted_delivery_ids: [],
+        deleted_expense_ids: [],
+        updated_at: new Date().toISOString(),
+      });
+      const col = await getDocs(collection(db, 'monthly_closings'));
+      for (const d of col.docs) {
+        await deleteDoc(doc(db, 'monthly_closings', d.id));
+      }
+    } catch (err) {
+      console.error('Erro ao limpar histórico no Firestore:', err);
     }
   }
 

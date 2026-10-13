@@ -274,9 +274,9 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
               {filteredHistory.length === 0 ? (
                 <div className="p-8 text-center text-slate-500 space-y-2">
                   <Archive className="w-10 h-10 text-slate-300 mx-auto" />
-                  <p className="text-xs font-bold text-slate-700">Nenhum mês arquivado ainda</p>
+                  <p className="text-xs font-bold text-slate-700">Nenhum mês arquivado</p>
                   <p className="text-[11px] text-slate-400">
-                    Ao confirmar o fechamento mensal, todos os dados são salvos aqui permanentemente.
+                    O histórico está vazio e todas as vendas, despesas e entregas estão ativas no painel principal.
                   </p>
                 </div>
               ) : (
@@ -603,9 +603,13 @@ export const MonthlyHistoryModal: React.FC<MonthlyHistoryModalProps> = ({
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400 space-y-2">
                 <FileText className="w-12 h-12 text-slate-200" />
-                <p className="text-sm font-bold text-slate-600">Selecione um mês na lista</p>
+                <p className="text-sm font-bold text-slate-600">
+                  {history.length === 0 ? 'Nenhum fechamento registrado no histórico' : 'Selecione um mês na lista'}
+                </p>
                 <p className="text-xs text-slate-400 max-w-xs">
-                  Clique em qualquer fechamento mensal à esquerda para visualizar o resumo, todas as vendas e despesas arquivadas.
+                  {history.length === 0
+                    ? 'Todos os meses e lançamentos estão ativos no sistema. Nenhum período está fechado ou arquivado.'
+                    : 'Clique em qualquer fechamento mensal à esquerda para visualizar o resumo, todas as vendas e despesas arquivadas.'}
                 </p>
               </div>
             )}
