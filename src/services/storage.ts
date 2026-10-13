@@ -191,6 +191,16 @@ class StorageService {
         }
       });
 
+      // Guarantee all base initial sales across all months are always present
+      const initial = generateInitialData();
+      for (const s of initial.sales) {
+        if (!deletedIds.has(s.id) && !salesMap.has(s.id)) {
+          salesMap.set(s.id, s);
+          // Persist missing base sale to Firestore
+          setDoc(doc(db, 'sales', s.id), s).catch(() => {});
+        }
+      }
+
       // Preserve and guarantee all sales from reopened months from history snapshots
       for (const rec of history.filter((h) => h.is_reopened)) {
         if (Array.isArray(rec.sales_snapshot)) {
@@ -227,6 +237,15 @@ class StorageService {
           delivMap.set(item.id, item);
         }
       });
+
+      // Guarantee all base initial deliveries across all months are always present
+      const initial = generateInitialData();
+      for (const d of initial.deliveries) {
+        if (!deletedIds.has(d.id) && !delivMap.has(d.id)) {
+          delivMap.set(d.id, d);
+          setDoc(doc(db, 'deliveries', d.id), d).catch(() => {});
+        }
+      }
 
       // Preserve and guarantee all deliveries from reopened months from history snapshots
       for (const rec of history.filter((h) => h.is_reopened)) {
@@ -448,11 +467,11 @@ class StorageService {
   }
 
   public init() {
-    const DATA_VERSION = "v_real_data_imperatriz_2026_10_v3";
+    const DATA_VERSION = "v_real_data_imperatriz_2026_10_v5_all_months_active";
     const currentVersion = getItem<string | null>("acs_data_version", null);
     const existingSales = getItem<Sale[] | null>(STORAGE_KEYS.SALES, null);
 
-    if (!existingSales || currentVersion !== DATA_VERSION) {
+    if (!existingSales || currentVersion !== DATA_VERSION || existingSales.length < 44) {
       const initial = generateInitialData();
 
       setItem(STORAGE_KEYS.USERS, initial.users);
@@ -831,7 +850,19 @@ class StorageService {
       salesMap.set(s.id, s);
     }
 
-    // 2. Guarantee that all sales from reopened months are present!
+    // 2. Guarantee that all base initial sales across all open months are present
+    const initial = generateInitialData();
+    for (const s of initial.sales) {
+      if (!s || s.is_deleted) continue;
+      const m = (s.sale_date || '').slice(0, 7);
+      if (activeClosedMonths.has(m)) continue;
+      if (!reopenedMonths.has(m) && deletedIds.has(s.id)) continue;
+      if (!salesMap.has(s.id)) {
+        salesMap.set(s.id, s);
+      }
+    }
+
+    // 3. Guarantee that all sales from reopened months are present!
     for (const rec of history.filter((h) => h.is_reopened)) {
       if (Array.isArray(rec.sales_snapshot)) {
         for (const s of rec.sales_snapshot) {
@@ -1167,6 +1198,18 @@ class StorageService {
       if (activeClosedMonths.has(m)) continue;
       if (!reopenedMonths.has(m) && deletedIds.has(d.id)) continue;
       delivMap.set(d.id, d);
+    }
+
+    // Guarantee that all base initial deliveries across all open months are present
+    const initial = generateInitialData();
+    for (const d of initial.deliveries) {
+      if (!d || d.is_deleted) continue;
+      const m = (d.delivery_date || '').slice(0, 7);
+      if (activeClosedMonths.has(m)) continue;
+      if (!reopenedMonths.has(m) && deletedIds.has(d.id)) continue;
+      if (!delivMap.has(d.id)) {
+        delivMap.set(d.id, d);
+      }
     }
 
     for (const rec of history.filter((h) => h.is_reopened)) {
@@ -2120,6 +2163,23 @@ class StorageService {
       await this.reopenMonthlyClosing(month);
       count++;
     }
+
+    // Guarantee that closed_months and deleted trackers are completely cleared
+    state.closed_months = [];
+    setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, state);
+    setItem(STORAGE_KEYS.DELETED_SALES_IDS, []);
+    setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+    setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+    try {
+      await setDoc(doc(db, 'settings', 'monthly_closing'), state);
+      await setDoc(doc(db, 'settings', 'deleted_records'), {
+        deleted_sales_ids: [],
+        deleted_delivery_ids: [],
+        deleted_expense_ids: [],
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {}
+
     notifyStorageChange();
     return count;
   }

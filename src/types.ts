@@ -293,6 +293,7 @@ export interface MonthlyClosingState {
   last_postponed_date?: string; // YYYY-MM-DD
   closed_months: string[]; // ['2026-09', ...]
   history: MonthlyClosingRecord[];
+  updated_at?: string;
 }
 
 export interface CompanySettings {
