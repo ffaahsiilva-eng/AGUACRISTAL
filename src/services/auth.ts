@@ -119,57 +119,86 @@ class AuthService {
       const userCredential = await signInWithEmailAndPassword(auth, email, passwordAttempt);
       const firebaseUser = userCredential.user;
 
-      // Fetch user role and status from Firestore
-      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-      
-      
-      if (!userDoc.exists()) {
-        console.warn('User profile missing in Firestore. Attempting to auto-create...');
-        const newUser: User = {
-          id: firebaseUser.uid,
-          name: firebaseUser.displayName || email.split('@')[0],
-          email: email,
-          phone: '',
-          role: 'ADMINISTRADOR',
-          status: 'Ativo',
-          email_verified: firebaseUser.emailVerified,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
-        storage.setCurrentUser(newUser);
-        return { success: true, user: newUser };
+      let userData: User | null = null;
+      try {
+        const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userDoc.exists()) {
+          userData = userDoc.data() as User;
+        } else {
+          console.warn('User profile missing in Firestore. Attempting to auto-create...');
+          const newUser: User = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || email.split('@')[0],
+            email: email,
+            phone: '',
+            role: 'ADMINISTRADOR',
+            status: 'Ativo',
+            email_verified: firebaseUser.emailVerified,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          try {
+            await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+          } catch (e: any) {
+            if (e?.code === 'resource-exhausted' || e?.message?.includes('Quota exceeded')) {
+              storage.markQuotaExceeded();
+            }
+          }
+          storage.setCurrentUser(newUser);
+          this.clearFailedAttempts(email);
+          this.setRememberedEmail(email, rememberMe);
+          return { success: true, user: newUser };
+        }
+      } catch (docErr: any) {
+        console.warn('Firestore user fetch failed (likely quota or offline):', docErr?.message || docErr);
+        if (docErr?.code === 'resource-exhausted' || docErr?.message?.includes('Quota exceeded')) {
+          storage.markQuotaExceeded();
+        }
+        const localUsers = storage.getUsers();
+        const foundLocal = localUsers.find((u) => u.email === email || u.id === firebaseUser.uid);
+        if (foundLocal) {
+          userData = foundLocal;
+        } else {
+          userData = {
+            id: firebaseUser.uid,
+            name: firebaseUser.displayName || email.split('@')[0],
+            email: email,
+            phone: '',
+            role: 'ADMINISTRADOR',
+            status: 'Ativo',
+            email_verified: firebaseUser.emailVerified,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+        }
       }
 
-
-      const userData = userDoc.data() as User;
-      const status = userData.status || 'Ativo';
-      
-      if (status === 'Pendente') {
-        await signOut(auth);
-        return { success: false, error: 'Seu acesso está aguardando aprovação do administrador.' };
-      }
-      
-      if (status === 'Inativo' || status === 'Bloqueado') {
-        await signOut(auth);
-        return { success: false, error: 'Sua conta está inativa. Entre em contato com o administrador.' };
+      if (userData) {
+        const status = userData.status || 'Ativo';
+        if (status === 'Pendente') {
+          await signOut(auth);
+          return { success: false, error: 'Seu acesso está aguardando aprovação do administrador.' };
+        }
+        if (status === 'Inativo' || status === 'Bloqueado') {
+          await signOut(auth);
+          return { success: false, error: 'Sua conta está inativa. Entre em contato com o administrador.' };
+        }
       }
 
       this.clearFailedAttempts(email);
       this.setRememberedEmail(email, rememberMe);
 
-      // Keep sync for legacy local storage components
-      storage.setCurrentUser(userData);
-      
-      return { success: true, user: userData };
+      if (userData) {
+        storage.setCurrentUser(userData);
+      }
+      return { success: true, user: userData || undefined };
     } catch (error: any) {
       this.recordFailedAttempt(email);
-      // Automatically map standard Demo accounts to Firebase if they don't exist yet for smooth migration
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
         const localUsers = storage.getUsers();
         const localUser = localUsers.find(u => u.email === email);
         if (localUser && (email === 'admin@aguacristalsul.com.br' || email === 'operador@aguacristalsul.com.br' || email === 'diretoria@aguacristalsul.com.br')) {
-           // We can't auto-register here without knowing the password works, but since it's demo, we can just say invalid credentials
+           // Demo credentials notice
         }
       }
 
@@ -229,10 +258,16 @@ class AuthService {
         updated_at: new Date().toISOString(),
       };
 
-      // Save to Firestore
-      await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+      // Save to Firestore with quota protection
+      try {
+        await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+      } catch (err: any) {
+        if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota exceeded')) {
+          storage.markQuotaExceeded();
+        }
+      }
       
-      // Also save to legacy local storage during migration phase
+      // Also save to local storage
       await storage.saveUser(newUser);
 
       

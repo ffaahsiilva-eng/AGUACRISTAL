@@ -17,6 +17,7 @@ import {
   AiChatModal,
   MonthlyClosingModal,
   MonthlyHistoryModal,
+  QuotaWarningBanner,
 } from './components';
 import {
   DashboardView,
@@ -41,8 +42,13 @@ export function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState<boolean>(false);
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(() => storage.isQuotaExceeded());
 
   useEffect(() => {
+    const unsubQuota = storage.onQuotaExceededChange((exceeded) => {
+      setIsQuotaExceeded(exceeded);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
@@ -72,16 +78,37 @@ export function App() {
             storage.setCurrentUser(fallbackUser);
             storage.startFirestoreSync();
           }
-        } catch (e) {
-          console.error("Error fetching user profile:", e);
-          setCurrentUser(null);
+        } catch (e: any) {
+          console.warn("Firestore user profile fetch warning (falling back to cached profile):", e?.message || e);
+          if (e?.code === 'resource-exhausted' || e?.message?.includes('Quota exceeded')) {
+            storage.markQuotaExceeded();
+          }
+          const cachedUser = storage.getCurrentUser();
+          const fallbackUser: User = (cachedUser && (cachedUser.id === firebaseUser.uid || cachedUser.email === firebaseUser.email))
+            ? cachedUser
+            : {
+                id: firebaseUser.uid,
+                name: firebaseUser.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Usuário'),
+                email: firebaseUser.email || '',
+                role: 'ADMINISTRADOR',
+                status: 'Ativo',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              };
+          setCurrentUser(fallbackUser);
+          storage.setCurrentUser(fallbackUser);
+          storage.startFirestoreSync();
         }
       } else {
         setCurrentUser(null);
       }
       setIsAuthLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribe();
+      unsubQuota();
+    };
   }, []);
 
   const [activeTab, setActiveTabState] = useState<string>(() => {
@@ -635,6 +662,9 @@ export function App() {
           onNavigateToTab={handleNavigateTab}
           onLogout={handleLogout}
         />
+
+        {/* Quota Exceeded Notification */}
+        {isQuotaExceeded && <QuotaWarningBanner />}
 
         {/* Scrollable View Area */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">

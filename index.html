@@ -20,6 +20,10 @@
         if (msg.toLowerCase().includes('websocket')) {
           event.preventDefault();
         }
+        if (msg.toLowerCase().includes('quota exceeded') || msg.toLowerCase().includes('resource-exhausted')) {
+          console.warn('[Firebase] Quota exceeded capturado com sucesso. Aplicação funcionando no modo cache/offline.');
+          event.preventDefault();
+        }
       });
     </script>
   </head>

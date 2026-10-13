@@ -1,5 +1,4 @@
-import { collection, doc, setDoc, onSnapshot, getDocs, getDoc, deleteDoc, query, writeBatch } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { getSupabase, isSupabaseConfigured, onSupabaseConfigChange } from '../lib/supabase';
 import {
   User,
   Client,
@@ -130,13 +129,101 @@ function generateInitialData() {
 // Storage API Class
 class StorageService {
   private isSyncStarted = false;
+  private unsubscribeListeners: Array<() => void> = [];
 
   constructor() {
     this.init();
-    // Start syncing with Firestore immediately in background
-    this.startFirestoreSync().catch((err) => {
-      console.warn('Initial Firestore sync attempt:', err);
+    // Start Supabase sync if credentials are configured
+    this.startSupabaseSync().catch((err) => {
+      console.warn('Initial Supabase sync attempt:', err);
     });
+
+    onSupabaseConfigChange(() => {
+      this.isSyncStarted = false;
+      this.startSupabaseSync().catch((err) => {
+        console.warn('Re-syncing after Supabase configuration update:', err);
+      });
+    });
+  }
+
+  public isQuotaExceeded(): boolean {
+    return false; // Supabase doesn't have daily quota exhaustion locks
+  }
+
+  public markQuotaExceeded(): void {
+    // No-op (Firebase removed)
+  }
+
+  public onQuotaExceededChange(_fn: (exceeded: boolean) => void): () => void {
+    return () => {};
+  }
+
+  public unsubscribeAll(): void {
+    this.unsubscribeListeners.forEach((unsub) => {
+      try { unsub(); } catch (e) {}
+    });
+    this.unsubscribeListeners = [];
+  }
+
+  public async syncToSupabase(table: string, data: any): Promise<boolean> {
+    try {
+      if (!isSupabaseConfigured()) return true;
+      const supabase = getSupabase();
+      if (!supabase) return true;
+      const cleanData = sanitizeForFirestore(data);
+      const { error } = await supabase.from(table).upsert(cleanData);
+      if (error) {
+        console.warn(`[Supabase ${table} sync error]`, error.message);
+        return false;
+      }
+      return true;
+    } catch (err: any) {
+      console.warn(`[Supabase ${table} sync exception]`, err?.message || err);
+      return false;
+    }
+  }
+
+  public async deleteFromSupabase(table: string, id: string): Promise<boolean> {
+    try {
+      if (!isSupabaseConfigured()) return true;
+      const supabase = getSupabase();
+      if (!supabase) return true;
+      const { error } = await supabase.from(table).delete().eq('id', id);
+      if (error) {
+        console.warn(`[Supabase ${table} delete error]`, error.message);
+        return false;
+      }
+      return true;
+    } catch (err: any) {
+      console.warn(`[Supabase ${table} delete exception]`, err?.message || err);
+      return false;
+    }
+  }
+
+  // Backwards-compatibility aliases
+  public async syncToFirestore(docRefOrTable: any, data?: any): Promise<boolean> {
+    let table = 'sales';
+    let payload = data;
+    if (typeof docRefOrTable === 'string') {
+      table = docRefOrTable;
+    } else if (docRefOrTable?.path) {
+      const parts = docRefOrTable.path.split('/');
+      table = parts[0] || 'sales';
+    }
+    return this.syncToSupabase(table, payload);
+  }
+
+  public async deleteFromFirestore(docRefOrTable: any, id?: string): Promise<boolean> {
+    let table = 'sales';
+    let targetId = id || '';
+    if (typeof docRefOrTable === 'string') {
+      table = docRefOrTable;
+    } else if (docRefOrTable?.id) {
+      targetId = docRefOrTable.id;
+      const parts = (docRefOrTable?.path || '').split('/');
+      if (parts[0]) table = parts[0];
+    }
+    return this.deleteFromSupabase(table, targetId);
   }
 
   private getActiveClosedMonths(): Set<string> {
@@ -154,327 +241,234 @@ class StorageService {
   }
 
   public async startFirestoreSync() {
-    if (this.isSyncStarted) return;
-    this.isSyncStarted = true;
-    console.log('Starting Firestore realtime sync...');
-
-    // Proactive initial fetch of settings/monthly_closing to hydrate state immediately
-    try {
-      getDoc(doc(db, 'settings', 'monthly_closing')).then((docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data() as MonthlyClosingState;
-          const reopenedMonths = (data.history || []).filter((h) => h.is_reopened).map((h) => h.month);
-          data.closed_months = (data.closed_months || []).filter((m) => !reopenedMonths.includes(m));
-          setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, data);
-          if (Array.isArray(data.history)) {
-            setItem(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, data.history);
-          }
-          notifyStorageChange();
-        }
-      }).catch(() => {});
-    } catch (e) {}
-
-    // Realtime listener for settings/monthly_closing
-    onSnapshot(doc(db, 'settings', 'monthly_closing'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as MonthlyClosingState;
-        const reopenedMonths = (data.history || []).filter((h) => h.is_reopened).map((h) => h.month);
-        data.closed_months = (data.closed_months || []).filter((m) => !reopenedMonths.includes(m));
-        setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, data);
-        if (Array.isArray(data.history)) {
-          setItem(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, data.history);
-        }
-        notifyStorageChange();
-      }
-    });
-
-    // Realtime listener for settings/deleted_records
-    onSnapshot(doc(db, 'settings', 'deleted_records'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, data?.deleted_expense_ids || []);
-        setItem(STORAGE_KEYS.DELETED_SALES_IDS, data?.deleted_sales_ids || []);
-        setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, data?.deleted_delivery_ids || []);
-      } else {
-        setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
-        setItem(STORAGE_KEYS.DELETED_SALES_IDS, []);
-        setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
-      }
-      notifyStorageChange();
-    });
-
-    // Immediate realtime listeners without waiting for sequential blocking queries
-    onSnapshot(collection(db, 'sales'), (snapshot) => {
-      const activeClosedMonths = this.getActiveClosedMonths();
-      const history = this.getMonthlyClosingHistory();
-      const salesMap = new Map<string, Sale>();
-
-      snapshot.forEach((docSnap) => {
-        const item = docSnap.data() as Sale;
-        if (!item || item.is_deleted) return;
-        const m = (item.sale_date || '').slice(0, 7);
-        // Only exclude if the month itself is currently closed
-        if (!activeClosedMonths.has(m)) {
-          salesMap.set(item.id, item);
-        }
-      });
-
-      // Guarantee all base initial sales across all open months are always present
-      const initial = generateInitialData();
-      for (const s of initial.sales) {
-        if (!s || s.is_deleted) continue;
-        const m = (s.sale_date || '').slice(0, 7);
-        if (!activeClosedMonths.has(m) && !salesMap.has(s.id)) {
-          salesMap.set(s.id, s);
-          // Persist missing base sale to Firestore
-          setDoc(doc(db, 'sales', s.id), s).catch(() => {});
-        }
-      }
-
-      // Preserve and guarantee all sales from reopened months from history snapshots
-      for (const rec of history.filter((h) => h.is_reopened)) {
-        if (Array.isArray(rec.sales_snapshot)) {
-          for (const s of rec.sales_snapshot) {
-            if (s && !s.is_deleted && !salesMap.has(s.id)) {
-              salesMap.set(s.id, s);
-            }
-          }
-        }
-      }
-
-      const items = Array.from(salesMap.values());
-      items.sort((a, b) => {
-        const timeA = a.created_at || a.sale_date || '';
-        const timeB = b.created_at || b.sale_date || '';
-        if (timeB !== timeA) return timeB.localeCompare(timeA);
-        return (b.code || '').localeCompare(a.code || '');
-      });
-      setItem(STORAGE_KEYS.SALES, items);
-      notifyStorageChange();
-    });
-
-    onSnapshot(collection(db, 'deliveries'), (snapshot) => {
-      const activeClosedMonths = this.getActiveClosedMonths();
-      const history = this.getMonthlyClosingHistory();
-      const delivMap = new Map<string, Delivery>();
-
-      snapshot.forEach((docSnap) => {
-        const item = docSnap.data() as Delivery;
-        if (!item || item.is_deleted) return;
-        const m = (item.delivery_date || '').slice(0, 7);
-        if (!activeClosedMonths.has(m)) {
-          delivMap.set(item.id, item);
-        }
-      });
-
-      // Guarantee all base initial deliveries across all open months are always present
-      const initial = generateInitialData();
-      for (const d of initial.deliveries) {
-        if (!d || d.is_deleted) continue;
-        const m = (d.delivery_date || '').slice(0, 7);
-        if (!activeClosedMonths.has(m) && !delivMap.has(d.id)) {
-          delivMap.set(d.id, d);
-          setDoc(doc(db, 'deliveries', d.id), d).catch(() => {});
-        }
-      }
-
-      // Preserve and guarantee all deliveries from reopened months from history snapshots
-      for (const rec of history.filter((h) => h.is_reopened)) {
-        if (Array.isArray(rec.deliveries_snapshot)) {
-          for (const d of rec.deliveries_snapshot) {
-            if (d && !d.is_deleted && !delivMap.has(d.id)) {
-              delivMap.set(d.id, d);
-            }
-          }
-        }
-      }
-
-      const items = Array.from(delivMap.values());
-      items.sort((a, b) => {
-        const timeA = a.created_at || a.delivery_date || '';
-        const timeB = b.created_at || b.delivery_date || '';
-        if (timeB !== timeA) return timeB.localeCompare(timeA);
-        return (b.code || '').localeCompare(a.code || '');
-      });
-      setItem(STORAGE_KEYS.DELIVERIES, items);
-      notifyStorageChange();
-    });
-
-    onSnapshot(collection(db, 'expenses'), (snapshot) => {
-      const activeClosedMonths = this.getActiveClosedMonths();
-      const history = this.getMonthlyClosingHistory();
-      const expMap = new Map<string, Expense>();
-
-      snapshot.forEach((docSnap) => {
-        const item = docSnap.data() as Expense;
-        if (!item || item.is_deleted) return;
-        const id = item.id || docSnap.id;
-        const m = (item.expense_date || '').slice(0, 7);
-        if (!activeClosedMonths.has(m)) {
-          expMap.set(id, { ...item, id });
-        }
-      });
-
-      // Preserve all expenses from reopened months from history snapshots
-      for (const rec of history.filter((h) => h.is_reopened)) {
-        if (Array.isArray(rec.expenses_snapshot)) {
-          for (const e of rec.expenses_snapshot) {
-            if (e && !e.is_deleted && !expMap.has(e.id)) {
-              expMap.set(e.id, e);
-            }
-          }
-        }
-      }
-
-      const items = Array.from(expMap.values());
-      items.sort((a, b) => {
-        const timeA = a.created_at || a.expense_date || '';
-        const timeB = b.created_at || b.expense_date || '';
-        if (timeB !== timeA) return timeB.localeCompare(timeA);
-        return (b.code || '').localeCompare(a.code || '');
-      });
-      setItem(STORAGE_KEYS.EXPENSES, items);
-      notifyStorageChange();
-    });
-
-    // Sync users, clients, drivers, settings
-    onSnapshot(collection(db, 'users'), (snapshot) => {
-      const items: any[] = [];
-      snapshot.forEach(doc => items.push(doc.data()));
-      if (items.length > 0) {
-        setItem(STORAGE_KEYS.USERS, items);
-        notifyStorageChange();
-      }
-    });
-
-    onSnapshot(collection(db, 'clients'), (snapshot) => {
-      const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_CLIENT_IDS, []);
-      const items: any[] = [];
-      snapshot.forEach((docSnap) => {
-        const item = docSnap.data() as Client;
-        if (!deletedIds.includes(item.id) && !item.is_deleted) {
-          items.push(item);
-        }
-      });
-      if (items.length > 0 || !snapshot.empty) {
-        setItem(STORAGE_KEYS.CLIENTS, items);
-        notifyStorageChange();
-      }
-    });
-
-    onSnapshot(collection(db, 'drivers'), (snapshot) => {
-      const deletedIds = getItem<string[]>(STORAGE_KEYS.DELETED_DRIVER_IDS, []);
-      const items: any[] = [];
-      snapshot.forEach((docSnap) => {
-        const item = docSnap.data() as Driver;
-        if (!deletedIds.includes(item.id) && !item.is_deleted) {
-          items.push(item);
-        }
-      });
-      if (items.length > 0 || !snapshot.empty) {
-        setItem(STORAGE_KEYS.DRIVERS, items);
-        notifyStorageChange();
-      }
-    });
-
-    onSnapshot(doc(db, 'settings', 'company_info'), (docSnap) => {
-      if (docSnap.exists()) {
-        setItem('aguacristal_company_info_v2', docSnap.data());
-        notifyStorageChange();
-      }
-    });
-
-    onSnapshot(doc(db, 'settings', 'company'), (docSnap) => {
-      if (docSnap.exists()) {
-        setItem(STORAGE_KEYS.SETTINGS, docSnap.data());
-        notifyStorageChange();
-      }
-    });
-
-    onSnapshot(doc(db, 'settings', 'monthly_closing'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() as MonthlyClosingState;
-        const reopenedMonths = (data.history || []).filter((h) => h.is_reopened).map((h) => h.month);
-        data.closed_months = (data.closed_months || []).filter((m) => !reopenedMonths.includes(m));
-
-        setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, data);
-        if (Array.isArray(data.history)) {
-          setItem(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, data.history);
-
-          // Purge deleted tracking for all reopened months
-          const reopened = data.history.filter((h) => h.is_reopened);
-          if (reopened.length > 0) {
-            const restoredSaleIds = new Set<string>();
-            const restoredDelivIds = new Set<string>();
-            const restoredExpIds = new Set<string>();
-            for (const r of reopened) {
-              (r.sales_snapshot || []).forEach((s) => restoredSaleIds.add(s.id));
-              (r.deliveries_snapshot || []).forEach((d) => restoredDelivIds.add(d.id));
-              (r.expenses_snapshot || []).forEach((e) => restoredExpIds.add(e.id));
-            }
-
-            const curDelSales = getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []);
-            setItem(STORAGE_KEYS.DELETED_SALES_IDS, curDelSales.filter((id) => !restoredSaleIds.has(id)));
-
-            const curDelDeliv = getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
-            setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, curDelDeliv.filter((id) => !restoredDelivIds.has(id)));
-
-            const curDelExp = getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
-            setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, curDelExp.filter((id) => !restoredExpIds.has(id)));
-
-            // Merge back into active storage if missing
-            const curSales = getItem<Sale[]>(STORAGE_KEYS.SALES, []);
-            const existingSaleIds = new Set(curSales.map((s) => s.id));
-            const salesToAdd: Sale[] = [];
-            for (const r of reopened) {
-              for (const s of r.sales_snapshot || []) {
-                if (!existingSaleIds.has(s.id) && !s.is_deleted) {
-                  salesToAdd.push(s);
-                  existingSaleIds.add(s.id);
-                }
-              }
-            }
-            if (salesToAdd.length > 0) {
-              const merged = [...salesToAdd, ...curSales];
-              merged.sort((a, b) => {
-                const timeA = a.created_at || a.sale_date || '';
-                const timeB = b.created_at || b.sale_date || '';
-                if (timeB !== timeA) return timeB.localeCompare(timeA);
-                return (b.code || '').localeCompare(a.code || '');
-              });
-              setItem(STORAGE_KEYS.SALES, merged);
-            }
-
-            const curDelivs = getItem<Delivery[]>(STORAGE_KEYS.DELIVERIES, []);
-            const existingDelivIds = new Set(curDelivs.map((d) => d.id));
-            const delivsToAdd: Delivery[] = [];
-            for (const r of reopened) {
-              for (const d of r.deliveries_snapshot || []) {
-                if (!existingDelivIds.has(d.id) && !d.is_deleted) {
-                  delivsToAdd.push(d);
-                  existingDelivIds.add(d.id);
-                }
-              }
-            }
-            if (delivsToAdd.length > 0) {
-              const mergedD = [...delivsToAdd, ...curDelivs];
-              mergedD.sort((a, b) => {
-                const timeA = a.created_at || a.delivery_date || '';
-                const timeB = b.created_at || b.delivery_date || '';
-                if (timeB !== timeA) return timeB.localeCompare(timeA);
-                return (b.code || '').localeCompare(a.code || '');
-              });
-              setItem(STORAGE_KEYS.DELIVERIES, mergedD);
-            }
-          }
-        }
-        notifyStorageChange();
-      }
-    });
+    return this.startSupabaseSync();
   }
 
+  public async startSupabaseSync() {
+    if (!isSupabaseConfigured()) {
+      console.log('[Storage] Supabase não configurado. Operando com segurança em LocalStorage.');
+      return;
+    }
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    if (this.isSyncStarted) return;
+    this.isSyncStarted = true;
+    console.log('[Storage] Iniciando sincronização em tempo real com o Supabase...');
+
+    try {
+      // 1. Fetch sales
+      const { data: salesData } = await supabase.from('sales').select('*');
+      if (Array.isArray(salesData) && salesData.length > 0) {
+        const localSales = getItem<Sale[]>(STORAGE_KEYS.SALES, []);
+        const salesMap = new Map<string, Sale>();
+        localSales.forEach((s) => salesMap.set(s.id, s));
+        salesData.forEach((s: any) => {
+          if (!s.is_deleted) salesMap.set(s.id, s);
+          else salesMap.delete(s.id);
+        });
+        setItem(STORAGE_KEYS.SALES, Array.from(salesMap.values()));
+      }
+
+      // 2. Fetch clients
+      const { data: clientsData } = await supabase.from('clients').select('*');
+      if (Array.isArray(clientsData) && clientsData.length > 0) {
+        const localClients = getItem<Client[]>(STORAGE_KEYS.CLIENTS, []);
+        const clientsMap = new Map<string, Client>();
+        localClients.forEach((c) => clientsMap.set(c.id, c));
+        clientsData.forEach((c: any) => {
+          if (!c.is_deleted) clientsMap.set(c.id, c);
+          else clientsMap.delete(c.id);
+        });
+        setItem(STORAGE_KEYS.CLIENTS, Array.from(clientsMap.values()));
+      }
+
+      // 3. Fetch drivers
+      const { data: driversData } = await supabase.from('drivers').select('*');
+      if (Array.isArray(driversData) && driversData.length > 0) {
+        const localDrivers = getItem<Driver[]>(STORAGE_KEYS.DRIVERS, []);
+        const driversMap = new Map<string, Driver>();
+        localDrivers.forEach((d) => driversMap.set(d.id, d));
+        driversData.forEach((d: any) => {
+          if (!d.is_deleted) driversMap.set(d.id, d);
+          else driversMap.delete(d.id);
+        });
+        setItem(STORAGE_KEYS.DRIVERS, Array.from(driversMap.values()));
+      }
+
+      // 4. Fetch deliveries
+      const { data: delivData } = await supabase.from('deliveries').select('*');
+      if (Array.isArray(delivData) && delivData.length > 0) {
+        const localDelivs = getItem<Delivery[]>(STORAGE_KEYS.DELIVERIES, []);
+        const delivMap = new Map<string, Delivery>();
+        localDelivs.forEach((d) => delivMap.set(d.id, d));
+        delivData.forEach((d: any) => {
+          if (!d.is_deleted) delivMap.set(d.id, d);
+          else delivMap.delete(d.id);
+        });
+        setItem(STORAGE_KEYS.DELIVERIES, Array.from(delivMap.values()));
+      }
+
+      // 5. Fetch expenses
+      const { data: expData } = await supabase.from('expenses').select('*');
+      if (Array.isArray(expData) && expData.length > 0) {
+        const localExpenses = getItem<Expense[]>(STORAGE_KEYS.EXPENSES, []);
+        const expMap = new Map<string, Expense>();
+        localExpenses.forEach((e) => expMap.set(e.id, e));
+        expData.forEach((e: any) => {
+          if (!e.is_deleted) expMap.set(e.id, e);
+          else expMap.delete(e.id);
+        });
+        setItem(STORAGE_KEYS.EXPENSES, Array.from(expMap.values()));
+      }
+
+      // 6. Fetch settings
+      const { data: settingsData } = await supabase.from('settings').select('*');
+      if (Array.isArray(settingsData)) {
+        for (const item of settingsData) {
+          if (item.id === 'company' && item.data) {
+            setItem(STORAGE_KEYS.SETTINGS, item.data);
+          } else if (item.id === 'company_info' && item.data) {
+            setItem('aguacristal_company_info_v2', item.data);
+          } else if (item.id === 'monthly_closing' && item.data) {
+            setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, item.data);
+          }
+        }
+      }
+
+      notifyStorageChange();
+
+      // Subscribe to Realtime postgres_changes
+      const channel = supabase
+        .channel('aguacristal_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, (payload: any) => {
+          if (payload.new && payload.new.id) {
+            const cur = getItem<Sale[]>(STORAGE_KEYS.SALES, []);
+            const idx = cur.findIndex((s) => s.id === payload.new.id);
+            if (idx >= 0) cur[idx] = payload.new;
+            else cur.unshift(payload.new);
+            setItem(STORAGE_KEYS.SALES, cur);
+            notifyStorageChange();
+          } else if (payload.old?.id) {
+            const cur = getItem<Sale[]>(STORAGE_KEYS.SALES, []).filter((s) => s.id !== payload.old.id);
+            setItem(STORAGE_KEYS.SALES, cur);
+            notifyStorageChange();
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, (payload: any) => {
+          if (payload.new && payload.new.id) {
+            const cur = getItem<Client[]>(STORAGE_KEYS.CLIENTS, []);
+            const idx = cur.findIndex((c) => c.id === payload.new.id);
+            if (idx >= 0) cur[idx] = payload.new;
+            else cur.push(payload.new);
+            setItem(STORAGE_KEYS.CLIENTS, cur);
+            notifyStorageChange();
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'drivers' }, (payload: any) => {
+          if (payload.new && payload.new.id) {
+            const cur = getItem<Driver[]>(STORAGE_KEYS.DRIVERS, []);
+            const idx = cur.findIndex((d) => d.id === payload.new.id);
+            if (idx >= 0) cur[idx] = payload.new;
+            else cur.push(payload.new);
+            setItem(STORAGE_KEYS.DRIVERS, cur);
+            notifyStorageChange();
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'deliveries' }, (payload: any) => {
+          if (payload.new && payload.new.id) {
+            const cur = getItem<Delivery[]>(STORAGE_KEYS.DELIVERIES, []);
+            const idx = cur.findIndex((d) => d.id === payload.new.id);
+            if (idx >= 0) cur[idx] = payload.new;
+            else cur.unshift(payload.new);
+            setItem(STORAGE_KEYS.DELIVERIES, cur);
+            notifyStorageChange();
+          }
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, (payload: any) => {
+          if (payload.new && payload.new.id) {
+            const cur = getItem<Expense[]>(STORAGE_KEYS.EXPENSES, []);
+            const idx = cur.findIndex((e) => e.id === payload.new.id);
+            if (idx >= 0) cur[idx] = payload.new;
+            else cur.unshift(payload.new);
+            setItem(STORAGE_KEYS.EXPENSES, cur);
+            notifyStorageChange();
+          }
+        })
+        .subscribe();
+
+      this.unsubscribeListeners.push(() => {
+        try { supabase.removeChannel(channel); } catch (e) {}
+      });
+    } catch (err) {
+      console.warn('[Supabase Sync Error]', err);
+    }
+  }
+
+  public async syncLocalDataToSupabase(): Promise<{ ok: boolean; message: string }> {
+    if (!isSupabaseConfigured()) {
+      return { ok: false, message: 'Supabase não está configurado. Insira a URL e a Anon Key.' };
+    }
+    const supabase = getSupabase();
+    if (!supabase) {
+      return { ok: false, message: 'Cliente Supabase não inicializado.' };
+    }
+
+    try {
+      const clients = this.getClients();
+      if (clients.length > 0) {
+        await supabase.from('clients').upsert(clients.map(sanitizeForFirestore));
+      }
+
+      const drivers = this.getDrivers();
+      if (drivers.length > 0) {
+        await supabase.from('drivers').upsert(drivers.map(sanitizeForFirestore));
+      }
+
+      const vehicles = this.getVehicles();
+      if (vehicles.length > 0) {
+        await supabase.from('vehicles').upsert(vehicles.map(sanitizeForFirestore));
+      }
+
+      const sales = this.getSales();
+      if (sales.length > 0) {
+        await supabase.from('sales').upsert(sales.map(sanitizeForFirestore));
+      }
+
+      const deliveries = this.getDeliveries();
+      if (deliveries.length > 0) {
+        await supabase.from('deliveries').upsert(deliveries.map(sanitizeForFirestore));
+      }
+
+      const expenses = this.getExpenses();
+      if (expenses.length > 0) {
+        await supabase.from('expenses').upsert(expenses.map(sanitizeForFirestore));
+      }
+
+      const users = this.getUsers();
+      if (users.length > 0) {
+        await supabase.from('users').upsert(users.map(sanitizeForFirestore));
+      }
+
+      const companySettings = this.getSettings();
+      await supabase.from('settings').upsert([
+        { id: 'company', data: companySettings },
+        { id: 'company_info', data: this.getCompanyInfo() },
+        { id: 'monthly_closing', data: this.getMonthlyClosingState() },
+      ]);
+
+      return {
+        ok: true,
+        message: `Migração concluída com sucesso! ${sales.length} vendas, ${clients.length} clientes, ${drivers.length} motoristas e ${expenses.length} despesas foram salvas no Supabase.`,
+      };
+    } catch (err: any) {
+      return { ok: false, message: `Erro ao migrar dados: ${err?.message || err}` };
+    }
+  }
+
+
   public init() {
-    const DATA_VERSION = "v_real_data_imperatriz_2026_10_v8_all_months_active";
+    const DATA_VERSION = "v_real_data_imperatriz_2026_10_v10_render_fix";
     const currentVersion = getItem<string | null>("acs_data_version", null);
     const existingSales = getItem<Sale[] | null>(STORAGE_KEYS.SALES, null);
 
@@ -534,7 +528,17 @@ class StorageService {
     }
     user.updated_at = now;
     
-    await setDoc(doc(db, 'users', user.id), user);
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.id === user.id);
+    if (idx >= 0) {
+      users[idx] = user;
+    } else {
+      users.unshift(user);
+    }
+    setItem(STORAGE_KEYS.USERS, users);
+    notifyStorageChange();
+
+    await this.syncToSupabase('users', user);
     this.logAudit(user.created_at === now ? 'Criação' : 'Alteração', 'Usuário', user.id, `Usuário ${user.name} atualizado`);
   }
 
@@ -544,7 +548,9 @@ class StorageService {
   }
 
   public async updateSettings(settings: CompanySettings): Promise<void> {
-    await setDoc(doc(db, 'settings', 'company'), settings);
+    setItem(STORAGE_KEYS.SETTINGS, settings);
+    notifyStorageChange();
+    await this.syncToSupabase('settings', { id: 'company', data: settings });
     this.logAudit('Alteração', 'Configuração', 'settings', 'Configurações gerais da empresa atualizadas');
   }
 
@@ -609,8 +615,8 @@ class StorageService {
     setItem(STORAGE_KEYS.CLIENTS, clients);
     notifyStorageChange();
     
-    await setDoc(doc(db, 'clients', client.id), client);
-    this.logAudit(isNew ? 'Criação' : 'Alteração', 'Cliente', client.id, `Cliente ${client.name} salvo via Firestore`);
+    await this.syncToSupabase('clients', client);
+    this.logAudit(isNew ? 'Criação' : 'Alteração', 'Cliente', client.id, `Cliente ${client.name} salvo`);
     return client;
   }
 
@@ -747,11 +753,7 @@ class StorageService {
     this.logAudit('Exclusão', 'Cliente', id, `Cliente excluído: ${client?.name || id}`);
     notifyStorageChange();
 
-    try {
-      await deleteDoc(doc(db, 'clients', id));
-    } catch (err) {
-      console.error('Erro ao excluir cliente no Firestore:', err);
-    }
+    await this.deleteFromSupabase('clients', id);
   }
 
   // Drivers
@@ -792,8 +794,8 @@ class StorageService {
     setItem(STORAGE_KEYS.DRIVERS, drivers);
     notifyStorageChange();
     
-    await setDoc(doc(db, 'drivers', driver.id), driver);
-    this.logAudit(isNew ? 'Criação' : 'Alteração', 'Motorista', driver.id, `Motorista ${driver.name} salvo via Firestore`);
+    await this.syncToSupabase('drivers', driver);
+    this.logAudit(isNew ? 'Criação' : 'Alteração', 'Motorista', driver.id, `Motorista ${driver.name} salvo`);
     return driver;
   }
 
@@ -809,11 +811,7 @@ class StorageService {
     this.logAudit('Exclusão', 'Motorista', id, `Motorista excluído: ${driver?.name || id}`);
     notifyStorageChange();
 
-    try {
-      await deleteDoc(doc(db, 'drivers', id));
-    } catch (err) {
-      console.error('Erro ao excluir motorista no Firestore:', err);
-    }
+    await this.deleteFromSupabase('drivers', id);
   }
 
   // Vehicles
@@ -1057,7 +1055,7 @@ class StorageService {
     }
     notifyStorageChange();
 
-    await setDoc(doc(db, 'sales', sale.id), sale);
+    await this.syncToSupabase('sales', sale);
     return sale;
   }
 
@@ -1096,12 +1094,12 @@ class StorageService {
     notifyStorageChange();
 
     try {
-      await setDoc(doc(db, 'sales', id), sales[index]);
+      await this.syncToSupabase('sales', sales[index]);
       for (const d of deliveriesToUpdate) {
-        await setDoc(doc(db, 'deliveries', d.id), d);
+        await this.syncToSupabase('deliveries', d);
       }
     } catch (e) {
-      console.error('Erro ao atualizar cancelamento no Firestore:', e);
+      console.error('Erro ao atualizar cancelamento:', e);
     }
 
     return sales[index];
@@ -1173,14 +1171,13 @@ class StorageService {
     this.logAudit('Exclusão', 'Venda', id, `Venda excluída: ${sale?.code || id} (${sale?.client_name})`);
     notifyStorageChange();
 
-    // 5. Delete directly from Firestore collections so it never returns
     try {
-      await deleteDoc(doc(db, 'sales', id));
+      await this.deleteFromSupabase('sales', id);
       for (const del of relatedDeliveries) {
-        await deleteDoc(doc(db, 'deliveries', del.id));
+        await this.deleteFromSupabase('deliveries', del.id);
       }
     } catch (err) {
-      console.error('Erro ao excluir venda no Firestore:', err);
+      console.error('Erro ao excluir venda no Supabase:', err);
     }
   }
 
@@ -1290,11 +1287,7 @@ class StorageService {
     this.logAudit('Entrega', 'Entrega', delivery.id, `Entrega ${delivery.code} gerada para venda ${sale.code}`);
     notifyStorageChange();
 
-    try {
-      await setDoc(doc(db, 'deliveries', delivery.id), delivery);
-    } catch (err) {
-      console.error('Erro ao salvar entrega no Firestore:', err);
-    }
+    await this.syncToSupabase('deliveries', delivery);
     return delivery;
   }
 
@@ -1341,7 +1334,7 @@ class StorageService {
     setItem(STORAGE_KEYS.DELIVERIES, deliveries);
     notifyStorageChange();
 
-    await setDoc(doc(db, 'deliveries', delivery.id), delivery);
+    await this.syncToSupabase('deliveries', delivery);
     return delivery;
   }
 
@@ -1370,11 +1363,7 @@ class StorageService {
       );
       notifyStorageChange();
 
-      try {
-        await setDoc(doc(db, 'deliveries', id), deliveries[index]);
-      } catch (err) {
-        console.error('Erro ao atualizar status da entrega no Firestore:', err);
-      }
+      await this.syncToSupabase('deliveries', deliveries[index]);
     }
   }
 
@@ -1389,11 +1378,7 @@ class StorageService {
     this.logAudit('Exclusão', 'Entrega', id, `Entrega excluída ID: ${id}`);
     notifyStorageChange();
 
-    try {
-      await deleteDoc(doc(db, 'deliveries', id));
-    } catch (err) {
-      console.error('Erro ao excluir entrega no Firestore:', err);
-    }
+    await this.deleteFromSupabase('deliveries', id);
   }
 
   // Expenses
@@ -1519,7 +1504,7 @@ class StorageService {
     setItem(STORAGE_KEYS.EXPENSES, expenses);
     notifyStorageChange();
 
-    await setDoc(doc(db, 'expenses', expense.id), expense);
+    await this.syncToSupabase('expenses', expense);
     return expense;
   }
 
@@ -1546,19 +1531,9 @@ class StorageService {
     this.logAudit('Exclusão', 'Despesa', id, `Despesa excluída: ${expense?.code || id}`);
     notifyStorageChange();
 
-    try {
-      await deleteDoc(doc(db, 'expenses', id));
-      if (expense?.id && expense.id !== id) {
-        await deleteDoc(doc(db, 'expenses', expense.id));
-      }
-      // Also register in cloud deleted_records document so all sessions/reloads ignore it
-      const deletedDocRef = doc(db, 'settings', 'deleted_records');
-      const delSnap = await getDoc(deletedDocRef);
-      const existingDel = delSnap.exists() ? (delSnap.data()?.deleted_expense_ids || []) : [];
-      const newDel = Array.from(new Set([...existingDel, ...deletedIds]));
-      await setDoc(deletedDocRef, { deleted_expense_ids: newDel }, { merge: true });
-    } catch (err) {
-      console.error('Erro ao excluir despesa no Firestore:', err);
+    await this.deleteFromSupabase('expenses', id);
+    if (expense?.id && expense.id !== id) {
+      await this.deleteFromSupabase('expenses', expense.id);
     }
   }
 
@@ -1597,11 +1572,7 @@ class StorageService {
         `Recebimento de R$ ${record.amount.toFixed(2)} registrado para venda ${sale.code}. Saldo restante: R$ ${newPending.toFixed(2)}`
       );
 
-      try {
-        await setDoc(doc(db, 'sales', sale.id), sales[index]);
-      } catch (err) {
-        console.error('Erro ao atualizar venda no Firestore após pagamento:', err);
-      }
+      await this.syncToSupabase('sales', sales[index]);
     }
     notifyStorageChange();
   }
@@ -1662,8 +1633,8 @@ class StorageService {
   }
 
   public async saveCompanyInfo(info: CompanyInfo): Promise<void> {
-    await setDoc(doc(db, 'settings', 'company_info'), info);
-    this.logAudit('Alteração', 'Configuração', 'company', 'Dados da empresa atualizados via Firestore');
+    await this.syncToSupabase('settings', { id: 'company_info', data: info });
+    this.logAudit('Alteração', 'Configuração', 'company', 'Dados da empresa atualizados');
   }
 
   // Monthly Closing Methods
@@ -1686,9 +1657,7 @@ class StorageService {
     setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, state);
     notifyStorageChange();
 
-    setDoc(doc(db, 'settings', 'monthly_closing'), state).catch((err) => {
-      console.warn('Erro ao salvar adiamento de fechamento no Firestore:', err);
-    });
+    this.syncToSupabase('settings', { id: 'monthly_closing', data: state });
   }
 
   public async executeMonthlyClosing(
@@ -1829,59 +1798,22 @@ class StorageService {
 
     notifyStorageChange();
 
-    // 4. Persist to Firestore: update monthly_closing document and delete the items in chunks
+    // 4. Persist to Supabase: update monthly_closing document and delete the items
     try {
-      await setDoc(doc(db, 'settings', 'monthly_closing'), state);
-      await setDoc(doc(db, 'settings', 'deleted_records'), {
-        deleted_sales_ids: newDeletedSalesIds,
-        deleted_expense_ids: newDeletedExpensesIds,
-        deleted_delivery_ids: newDeletedDeliveriesIds,
-        updated_at: new Date().toISOString(),
-      });
-
-      // Also save individual archive doc in firestore for durability
-      await setDoc(doc(db, 'monthly_closings', targetMonth), closingRecord);
-
-      // Delete items from firestore collections in batches
-      const maxBatch = 400;
-      let batch = writeBatch(db);
-      let count = 0;
+      await this.syncToSupabase('settings', { id: 'monthly_closing', data: state });
+      await this.syncToSupabase('monthly_closings', closingRecord);
 
       for (const id of salesIdsToDelete) {
-        batch.delete(doc(db, 'sales', id));
-        count++;
-        if (count >= maxBatch) {
-          await batch.commit();
-          batch = writeBatch(db);
-          count = 0;
-        }
+        await this.deleteFromSupabase('sales', id);
       }
-
       for (const id of expensesIdsToDelete) {
-        batch.delete(doc(db, 'expenses', id));
-        count++;
-        if (count >= maxBatch) {
-          await batch.commit();
-          batch = writeBatch(db);
-          count = 0;
-        }
+        await this.deleteFromSupabase('expenses', id);
       }
-
       for (const id of deliveriesIdsToDelete) {
-        batch.delete(doc(db, 'deliveries', id));
-        count++;
-        if (count >= maxBatch) {
-          await batch.commit();
-          batch = writeBatch(db);
-          count = 0;
-        }
-      }
-
-      if (count > 0) {
-        await batch.commit();
+        await this.deleteFromSupabase('deliveries', id);
       }
     } catch (err) {
-      console.error('Erro ao persistir fechamento mensal no Firestore:', err);
+      console.error('Erro ao persistir fechamento mensal:', err);
     }
 
     return closingRecord;

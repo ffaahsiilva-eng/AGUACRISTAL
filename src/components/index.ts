@@ -11,4 +11,6 @@ export { ConfirmModal } from './ConfirmModal';
 export { GlobalSearchModal } from './GlobalSearchModal';
 export { MonthlyClosingModal } from './MonthlyClosingModal';
 export { MonthlyHistoryModal } from './MonthlyHistoryModal';
+export { QuotaWarningBanner } from './QuotaWarningBanner';
+export { SupabaseModal } from './SupabaseModal';
 export * from './AiChatModal';
