@@ -194,9 +194,11 @@ export function App() {
     setIsMonthlyClosingModalOpen(true);
   };
 
-  // Automatic Monthly Closing Check (Finds months with unclosed movements)
+  // Automatic Monthly Closing Check (Runs at most once per session on initial load)
   useEffect(() => {
     if (!currentUser) return;
+    const sessionKey = 'acs_closing_prompt_shown_' + getTodayDateString();
+    if (sessionStorage.getItem(sessionKey)) return;
 
     const checkMonthlyClosingPrompt = () => {
       const closingState = storage.getMonthlyClosingState();
@@ -228,6 +230,7 @@ export function App() {
       const wasPostponedToday = closingState.last_postponed_date === todayStr;
 
       if (unclosedMonths.length > 0 && !wasPostponedToday) {
+        sessionStorage.setItem(sessionKey, 'true');
         const targetM = unclosedMonths[0]; // oldest unclosed month with movements
         const [y, mon] = targetM.split('-');
         const monthNames = [
@@ -241,10 +244,9 @@ export function App() {
       }
     };
 
-    // Run check after initial render / storage hydration
-    const timer = setTimeout(checkMonthlyClosingPrompt, 600);
+    const timer = setTimeout(checkMonthlyClosingPrompt, 1500);
     return () => clearTimeout(timer);
-  }, [currentUser, dataVersion]);
+  }, [currentUser]);
 
   // Handlers for Sales
   const handleOpenNewSale = (preselectedClient?: Client) => {

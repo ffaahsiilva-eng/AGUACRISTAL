@@ -357,7 +357,46 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ onOpenPrintModal }) =>
 
       {/* Date Filter Bar */}
       <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setStartDate('');
+                setEndDate('');
+              }}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
+                !startDate && !endDate ? 'bg-white text-sky-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Todos os Meses
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStartDate('2026-09-01');
+                setEndDate('2026-09-30');
+              }}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
+                startDate === '2026-09-01' && endDate === '2026-09-30' ? 'bg-white text-sky-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Set/2026
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStartDate('2026-10-01');
+                setEndDate('2026-10-31');
+              }}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
+                startDate === '2026-10-01' && endDate === '2026-10-31' ? 'bg-white text-sky-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Out/2026
+            </button>
+          </div>
+
           <div>
             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Período De:</label>
             <input

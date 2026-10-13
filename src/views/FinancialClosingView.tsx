@@ -198,6 +198,31 @@ export const FinancialClosingView: React.FC<FinancialClosingViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setSelectedMonth('2026-09')}
+              className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-colors ${
+                selectedMonth === '2026-09'
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Setembro (Mês 9)
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedMonth('2026-10')}
+              className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-colors ${
+                selectedMonth === '2026-10'
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Outubro (Mês 10)
+            </button>
+          </div>
+
           <input
             type="month"
             value={selectedMonth}

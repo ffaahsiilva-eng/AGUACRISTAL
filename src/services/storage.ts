@@ -174,27 +174,57 @@ class StorageService {
       }).catch(() => {});
     } catch (e) {}
 
+    // Realtime listener for settings/monthly_closing
+    onSnapshot(doc(db, 'settings', 'monthly_closing'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as MonthlyClosingState;
+        const reopenedMonths = (data.history || []).filter((h) => h.is_reopened).map((h) => h.month);
+        data.closed_months = (data.closed_months || []).filter((m) => !reopenedMonths.includes(m));
+        setItem(STORAGE_KEYS.MONTHLY_CLOSING_STATE, data);
+        if (Array.isArray(data.history)) {
+          setItem(STORAGE_KEYS.MONTHLY_CLOSING_HISTORY, data.history);
+        }
+        notifyStorageChange();
+      }
+    });
+
+    // Realtime listener for settings/deleted_records
+    onSnapshot(doc(db, 'settings', 'deleted_records'), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, data?.deleted_expense_ids || []);
+        setItem(STORAGE_KEYS.DELETED_SALES_IDS, data?.deleted_sales_ids || []);
+        setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, data?.deleted_delivery_ids || []);
+      } else {
+        setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, []);
+        setItem(STORAGE_KEYS.DELETED_SALES_IDS, []);
+        setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, []);
+      }
+      notifyStorageChange();
+    });
+
     // Immediate realtime listeners without waiting for sequential blocking queries
     onSnapshot(collection(db, 'sales'), (snapshot) => {
-      const deletedIds = new Set(getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []));
+      const activeClosedMonths = this.getActiveClosedMonths();
       const history = this.getMonthlyClosingHistory();
-      const reopenedMonths = new Set(history.filter((h) => h.is_reopened).map((h) => h.month));
-
       const salesMap = new Map<string, Sale>();
+
       snapshot.forEach((docSnap) => {
         const item = docSnap.data() as Sale;
         if (!item || item.is_deleted) return;
         const m = (item.sale_date || '').slice(0, 7);
-        // If sale belongs to a reopened month, ignore stale deletedIds
-        if (reopenedMonths.has(m) || !deletedIds.has(item.id)) {
+        // Only exclude if the month itself is currently closed
+        if (!activeClosedMonths.has(m)) {
           salesMap.set(item.id, item);
         }
       });
 
-      // Guarantee all base initial sales across all months are always present
+      // Guarantee all base initial sales across all open months are always present
       const initial = generateInitialData();
       for (const s of initial.sales) {
-        if (!deletedIds.has(s.id) && !salesMap.has(s.id)) {
+        if (!s || s.is_deleted) continue;
+        const m = (s.sale_date || '').slice(0, 7);
+        if (!activeClosedMonths.has(m) && !salesMap.has(s.id)) {
           salesMap.set(s.id, s);
           // Persist missing base sale to Firestore
           setDoc(doc(db, 'sales', s.id), s).catch(() => {});
@@ -224,24 +254,25 @@ class StorageService {
     });
 
     onSnapshot(collection(db, 'deliveries'), (snapshot) => {
-      const deletedIds = new Set(getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []));
+      const activeClosedMonths = this.getActiveClosedMonths();
       const history = this.getMonthlyClosingHistory();
-      const reopenedMonths = new Set(history.filter((h) => h.is_reopened).map((h) => h.month));
-
       const delivMap = new Map<string, Delivery>();
+
       snapshot.forEach((docSnap) => {
         const item = docSnap.data() as Delivery;
         if (!item || item.is_deleted) return;
         const m = (item.delivery_date || '').slice(0, 7);
-        if (reopenedMonths.has(m) || !deletedIds.has(item.id)) {
+        if (!activeClosedMonths.has(m)) {
           delivMap.set(item.id, item);
         }
       });
 
-      // Guarantee all base initial deliveries across all months are always present
+      // Guarantee all base initial deliveries across all open months are always present
       const initial = generateInitialData();
       for (const d of initial.deliveries) {
-        if (!deletedIds.has(d.id) && !delivMap.has(d.id)) {
+        if (!d || d.is_deleted) continue;
+        const m = (d.delivery_date || '').slice(0, 7);
+        if (!activeClosedMonths.has(m) && !delivMap.has(d.id)) {
           delivMap.set(d.id, d);
           setDoc(doc(db, 'deliveries', d.id), d).catch(() => {});
         }
@@ -270,17 +301,16 @@ class StorageService {
     });
 
     onSnapshot(collection(db, 'expenses'), (snapshot) => {
-      const deletedIds = new Set(getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []));
+      const activeClosedMonths = this.getActiveClosedMonths();
       const history = this.getMonthlyClosingHistory();
-      const reopenedMonths = new Set(history.filter((h) => h.is_reopened).map((h) => h.month));
-
       const expMap = new Map<string, Expense>();
+
       snapshot.forEach((docSnap) => {
         const item = docSnap.data() as Expense;
         if (!item || item.is_deleted) return;
         const id = item.id || docSnap.id;
         const m = (item.expense_date || '').slice(0, 7);
-        if (reopenedMonths.has(m) || (!deletedIds.has(id) && (!item.code || !deletedIds.has(item.code)))) {
+        if (!activeClosedMonths.has(m)) {
           expMap.set(id, { ...item, id });
         }
       });
@@ -305,29 +335,6 @@ class StorageService {
       });
       setItem(STORAGE_KEYS.EXPENSES, items);
       notifyStorageChange();
-    });
-
-    // Sync cloud deleted records so deletions persist across devices and reloads
-    onSnapshot(doc(db, 'settings', 'deleted_records'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        let changed = false;
-        if (Array.isArray(data?.deleted_expense_ids)) {
-          setItem(STORAGE_KEYS.DELETED_EXPENSE_IDS, data.deleted_expense_ids);
-          changed = true;
-        }
-        if (Array.isArray(data?.deleted_sales_ids)) {
-          setItem(STORAGE_KEYS.DELETED_SALES_IDS, data.deleted_sales_ids);
-          changed = true;
-        }
-        if (Array.isArray(data?.deleted_delivery_ids)) {
-          setItem(STORAGE_KEYS.DELETED_DELIVERY_IDS, data.deleted_delivery_ids);
-          changed = true;
-        }
-        if (changed) {
-          notifyStorageChange();
-        }
-      }
     });
 
     // Sync users, clients, drivers, settings
@@ -467,7 +474,7 @@ class StorageService {
   }
 
   public init() {
-    const DATA_VERSION = "v_real_data_imperatriz_2026_10_v5_all_months_active";
+    const DATA_VERSION = "v_real_data_imperatriz_2026_10_v8_all_months_active";
     const currentVersion = getItem<string | null>("acs_data_version", null);
     const existingSales = getItem<Sale[] | null>(STORAGE_KEYS.SALES, null);
 
@@ -835,8 +842,6 @@ class StorageService {
     const sales = getItem<Sale[]>(STORAGE_KEYS.SALES, []);
     const history = this.getMonthlyClosingHistory();
     const activeClosedMonths = this.getActiveClosedMonths();
-    const reopenedMonths = this.getReopenedMonthsSet();
-    const deletedIds = new Set(getItem<string[]>(STORAGE_KEYS.DELETED_SALES_IDS, []));
 
     const salesMap = new Map<string, Sale>();
 
@@ -845,8 +850,6 @@ class StorageService {
       if (!s || s.is_deleted) continue;
       const m = (s.sale_date || '').slice(0, 7);
       if (activeClosedMonths.has(m)) continue;
-      // If sale belongs to a reopened month, it is NOT deleted!
-      if (!reopenedMonths.has(m) && deletedIds.has(s.id)) continue;
       salesMap.set(s.id, s);
     }
 
@@ -856,7 +859,6 @@ class StorageService {
       if (!s || s.is_deleted) continue;
       const m = (s.sale_date || '').slice(0, 7);
       if (activeClosedMonths.has(m)) continue;
-      if (!reopenedMonths.has(m) && deletedIds.has(s.id)) continue;
       if (!salesMap.has(s.id)) {
         salesMap.set(s.id, s);
       }
@@ -1187,8 +1189,6 @@ class StorageService {
     const deliveries = getItem<Delivery[]>(STORAGE_KEYS.DELIVERIES, []);
     const history = this.getMonthlyClosingHistory();
     const activeClosedMonths = this.getActiveClosedMonths();
-    const reopenedMonths = this.getReopenedMonthsSet();
-    const deletedIds = new Set(getItem<string[]>(STORAGE_KEYS.DELETED_DELIVERY_IDS, []));
 
     const delivMap = new Map<string, Delivery>();
 
@@ -1196,7 +1196,6 @@ class StorageService {
       if (!d || d.is_deleted) continue;
       const m = (d.delivery_date || '').slice(0, 7);
       if (activeClosedMonths.has(m)) continue;
-      if (!reopenedMonths.has(m) && deletedIds.has(d.id)) continue;
       delivMap.set(d.id, d);
     }
 
@@ -1206,7 +1205,6 @@ class StorageService {
       if (!d || d.is_deleted) continue;
       const m = (d.delivery_date || '').slice(0, 7);
       if (activeClosedMonths.has(m)) continue;
-      if (!reopenedMonths.has(m) && deletedIds.has(d.id)) continue;
       if (!delivMap.has(d.id)) {
         delivMap.set(d.id, d);
       }
@@ -1403,8 +1401,6 @@ class StorageService {
     const expenses = getItem<Expense[]>(STORAGE_KEYS.EXPENSES, []);
     const history = this.getMonthlyClosingHistory();
     const activeClosedMonths = this.getActiveClosedMonths();
-    const reopenedMonths = this.getReopenedMonthsSet();
-    const deletedIds = new Set(getItem<string[]>(STORAGE_KEYS.DELETED_EXPENSE_IDS, []));
 
     const expMap = new Map<string, Expense>();
 
@@ -1412,7 +1408,6 @@ class StorageService {
       if (!e || e.is_deleted) continue;
       const m = (e.expense_date || '').slice(0, 7);
       if (activeClosedMonths.has(m)) continue;
-      if (!reopenedMonths.has(m) && (deletedIds.has(e.id) || (e.code && deletedIds.has(e.code)))) continue;
       expMap.set(e.id, e);
     }
 

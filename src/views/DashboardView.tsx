@@ -63,6 +63,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onEditSale,
 }) => {
   const [periodPreset, setPeriodPreset] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all');
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>(''); // '' = Todos os Meses
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [driverFilter, setDriverFilter] = useState('');
@@ -83,6 +84,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const deliveries = storage.getDeliveries();
   const drivers = storage.getDrivers();
 
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  // Discover all months available in data
+  const availableMonths = useMemo(() => {
+    const set = new Set<string>();
+    sales.forEach((s) => {
+      const m = (s.sale_date || '').slice(0, 7);
+      if (m) set.add(m);
+    });
+    expenses.forEach((e) => {
+      const m = (e.expense_date || '').slice(0, 7);
+      if (m) set.add(m);
+    });
+    return Array.from(set).sort().reverse().map((m) => {
+      const [y, mon] = m.split('-');
+      const count = sales.filter((s) => !s.is_deleted && s.sale_date?.startsWith(m)).length;
+      return {
+        key: m,
+        count,
+        label: `${monthNames[parseInt(mon, 10) - 1] || mon} de ${y}`,
+      };
+    });
+  }, [sales, expenses, dataVersion]);
+
   // Handle Preset changes
   const handlePresetChange = (preset: 'all' | 'today' | 'week' | 'month' | 'custom') => {
     setPeriodPreset(preset);
@@ -90,12 +118,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const todayStr = getTodayDateString();
 
     if (preset === 'all') {
+      setSelectedMonthFilter('');
       setStartDate('');
       setEndDate('');
     } else if (preset === 'today') {
+      setSelectedMonthFilter('');
       setStartDate(todayStr);
       setEndDate(todayStr);
     } else if (preset === 'week') {
+      setSelectedMonthFilter('');
       const day = today.getDay();
       const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Monday
       const monday = new Date(today.setDate(diff));
@@ -112,6 +143,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const filteredSales = useMemo(() => {
     return sales.filter((s) => {
       if (s.is_deleted) return false;
+      if (selectedMonthFilter && !s.sale_date?.startsWith(selectedMonthFilter)) return false;
       if (startDate && s.sale_date < startDate) return false;
       if (endDate && s.sale_date > endDate) return false;
       if (driverFilter && s.driver_id !== driverFilter && s.driver_name !== driverFilter) return false;
@@ -120,29 +152,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       if (cityFilter && !s.city.toLowerCase().includes(cityFilter.toLowerCase())) return false;
       return true;
     });
-  }, [sales, startDate, endDate, driverFilter, paymentMethodFilter, paymentStatusFilter, cityFilter, dataVersion]);
+  }, [sales, selectedMonthFilter, startDate, endDate, driverFilter, paymentMethodFilter, paymentStatusFilter, cityFilter, dataVersion]);
 
   // Filtered expenses
   const filteredExpenses = useMemo(() => {
     return expenses.filter((e) => {
       if (e.is_deleted) return false;
+      if (selectedMonthFilter && !e.expense_date?.startsWith(selectedMonthFilter)) return false;
       if (startDate && e.expense_date < startDate) return false;
       if (endDate && e.expense_date > endDate) return false;
       if (driverFilter && e.driver_id !== driverFilter) return false;
       return true;
     });
-  }, [expenses, startDate, endDate, driverFilter, dataVersion]);
+  }, [expenses, selectedMonthFilter, startDate, endDate, driverFilter, dataVersion]);
 
   // Filtered deliveries
   const filteredDeliveries = useMemo(() => {
     return deliveries.filter((d) => {
       if (d.is_deleted) return false;
+      if (selectedMonthFilter && !d.delivery_date?.startsWith(selectedMonthFilter)) return false;
       if (startDate && d.delivery_date < startDate) return false;
       if (endDate && d.delivery_date > endDate) return false;
       if (driverFilter && d.driver_id !== driverFilter) return false;
       return true;
     });
-  }, [deliveries, startDate, endDate, driverFilter, dataVersion]);
+  }, [deliveries, selectedMonthFilter, startDate, endDate, driverFilter, dataVersion]);
 
   // Calculations
   const todayStr = getTodayDateString();
@@ -423,7 +457,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Filters inputs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-2 border-t border-slate-100 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 pt-2 border-t border-slate-100 text-xs">
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-500 mb-1">Mês:</label>
+            <select
+              value={selectedMonthFilter}
+              onChange={(e) => {
+                setSelectedMonthFilter(e.target.value);
+                if (e.target.value) {
+                  setPeriodPreset('custom');
+                } else {
+                  setPeriodPreset('all');
+                }
+              }}
+              className="w-full px-2.5 py-1.5 border border-sky-300 rounded-lg text-xs font-bold text-sky-950 bg-sky-50/80 focus:bg-white"
+            >
+              <option value="">Todos os Meses</option>
+              {availableMonths.map((m) => (
+                <option key={m.key} value={m.key}>
+                  {m.label} ({m.count} vendas)
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="block text-[11px] font-semibold text-slate-500 mb-1">De:</label>
             <input
@@ -508,6 +565,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs font-medium"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Active Months Summary Ribbon */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-gradient-to-r from-sky-50 via-blue-50 to-indigo-50 border border-sky-200 rounded-2xl text-xs text-sky-950 shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+          <span className="font-extrabold text-slate-700">Visualizando:</span>
+          <span className="font-black text-sky-900">
+            {selectedMonthFilter
+              ? availableMonths.find((m) => m.key === selectedMonthFilter)?.label || selectedMonthFilter
+              : 'Todos os Meses (Setembro e Outubro de 2026)'}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-[11px] font-bold text-sky-800">
+          <span>{filteredSales.length} vendas ativas</span>
+          <span>•</span>
+          <span>{formatCurrency(totalPeriodSales)}</span>
+          <span>•</span>
+          <span>{totalQuantitySold} caixas</span>
         </div>
       </div>
 
